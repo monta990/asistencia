@@ -20,6 +20,7 @@ use ZkTimeNet\Services\DepartmentSplitter;
 use ZkTimeNet\Services\ConfigurationBackup;
 use ZkTimeNet\Services\MailerService;
 use ZkTimeNet\Services\SignatureImage;
+use ZkTimeNet\Services\BrandLogo;
 use ZkTimeNet\Services\TemplateRenderer;
 
 if (!defined('ZKTIME_BOOTSTRAP_ALLOWED')) {
@@ -43,6 +44,22 @@ try {
     http_response_code(503);
     $publicError = ErrorLogger::publicMessage($exception, 'No fue posible abrir el almacenamiento del sistema. Contacta al administrador.', 'database-connection');
     echo '<!doctype html><html lang="es"><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><title>No se puede abrir el sistema</title><body><h1>Control de asistencia</h1><p>' . Html::escape($publicError) . '</p></body></html>';
+    exit;
+}
+
+if ($action === 'brand_logo') {
+    $brandingSettings = (new SettingsRepository($pdo))->get('branding', []);
+    $logoMetadata = is_array($brandingSettings) ? ($brandingSettings['logo_image'] ?? null) : null;
+    $logoFile = BrandLogo::resolve($logoMetadata, (string) Config::get('storage_private'));
+    if ($logoFile === null) {
+        http_response_code(404);
+        exit('No hay un logotipo configurado.');
+    }
+    header('Content-Type: ' . $logoFile['mime']);
+    header('Content-Length: ' . (string) filesize($logoFile['path']));
+    header('Cache-Control: public, max-age=300');
+    header('X-Content-Type-Options: nosniff');
+    readfile($logoFile['path']);
     exit;
 }
 
@@ -332,6 +349,8 @@ $settings = new SettingsRepository($pdo);
 $brandingDefaults = (array) Config::get('branding_defaults', []);
 $brandingSaved = $settings->get('branding', []);
 $branding = array_replace($brandingDefaults, is_array($brandingSaved) ? $brandingSaved : []);
+$brandLogoAvailable = BrandLogo::resolve($branding['logo_image'] ?? null, (string) Config::get('storage_private')) !== null;
+$brandLogoUrl = 'index.php?action=brand_logo&v=' . substr(hash('sha256', (string) (($branding['logo_image']['filename'] ?? ''))), 0, 12);
 $reports = new ReportRepository($pdo);
 $users = new UserRepository($pdo);
 $mailer = new MailerService($settings);
@@ -582,27 +601,56 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                     }
                     $newBranding[$key] = $value;
                 }
+
                 $previousBranding = $branding;
-                $settings->set('branding', $newBranding);
-                $savedSmtp = $settings->get('smtp', []);
-                if (is_array($savedSmtp) && trim((string) ($savedSmtp['from_name'] ?? '')) !== ''
-                    && strcasecmp(trim((string) $savedSmtp['from_name']), (string) ($previousBranding['company_name'] ?? '')) === 0) {
-                    $savedSmtp['from_name'] = $newBranding['company_name'];
-                    $settings->set('smtp', $savedSmtp);
+                $oldLogo = $previousBranding['logo_image'] ?? null;
+                $newLogo = null;
+                $logoMetadata = $oldLogo;
+                $logoUpload = $_FILES['brand_logo'] ?? null;
+                if (is_array($logoUpload) && (int) ($logoUpload['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
+                    $newLogo = BrandLogo::store($logoUpload, (string) Config::get('storage_private'));
+                    $logoMetadata = $newLogo;
+                } elseif (isset($_POST['remove_brand_logo'])) {
+                    $logoMetadata = null;
                 }
-                // Si el pie sigue siendo el valor de fábrica, convertirlo a una variable dinámica.
-                // Los pies personalizados por el usuario se conservan sin modificaciones.
-                $savedTemplate = $settings->template();
-                $legacyDefaultFooter = "Saludos,\n{{empresa}}\nControl de asistencia";
-                if (trim((string) ($savedTemplate['footer_template'] ?? '')) === $legacyDefaultFooter) {
-                    $settings->saveTemplate(
-                        (string) $savedTemplate['subject_template'],
-                        (string) $savedTemplate['body_template'],
-                        "Saludos,\n{{empresa}}\n{{aplicacion}}"
-                    );
+                $newBranding['logo_image'] = $logoMetadata;
+
+                try {
+                    $pdo->beginTransaction();
+                    $settings->set('branding', $newBranding);
+                    $savedSmtp = $settings->get('smtp', []);
+                    if (is_array($savedSmtp) && trim((string) ($savedSmtp['from_name'] ?? '')) !== ''
+                        && strcasecmp(trim((string) $savedSmtp['from_name']), (string) ($previousBranding['company_name'] ?? '')) === 0) {
+                        $savedSmtp['from_name'] = $newBranding['company_name'];
+                        $settings->set('smtp', $savedSmtp);
+                    }
+                    // Si el pie sigue siendo el valor de fábrica, convertirlo a una variable dinámica.
+                    // Los pies personalizados por el usuario se conservan sin modificaciones.
+                    $savedTemplate = $settings->template();
+                    $legacyDefaultFooter = "Saludos,\n{{empresa}}\nControl de asistencia";
+                    if (trim((string) ($savedTemplate['footer_template'] ?? '')) === $legacyDefaultFooter) {
+                        $settings->saveTemplate(
+                            (string) $savedTemplate['subject_template'],
+                            (string) $savedTemplate['body_template'],
+                            "Saludos,\n{{empresa}}\n{{aplicacion}}"
+                        );
+                    }
+                    $pdo->commit();
+                } catch (Throwable $saveException) {
+                    if ($pdo->inTransaction()) {
+                        $pdo->rollBack();
+                    }
+                    if ($newLogo !== null) {
+                        BrandLogo::delete($newLogo, (string) Config::get('storage_private'));
+                    }
+                    throw $saveException;
+                }
+
+                if ($oldLogo !== $logoMetadata) {
+                    BrandLogo::delete($oldLogo, (string) Config::get('storage_private'));
                 }
                 $branding = array_replace($brandingDefaults, $newBranding);
-                Html::flash('success', 'Identidad visual guardada. Se aplicará en el panel, acceso y correos nuevos.');
+                Html::flash('success', 'Identidad visual guardada. Se aplicará en el panel y el acceso.');
                 Html::redirect('index.php?page=branding');
 
             case 'save_mail':
