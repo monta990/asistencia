@@ -171,7 +171,7 @@ try {
     $mailFileId = (int) $mailHistoryFile['id'];
     $assert((int) $mailHistoryFile['mail_attempt_count'] === 0, 'el archivo sin envíos previos muestra cero intentos');
     $deliveryRecord = $reportRepository->findDepartmentFileForDelivery($mailFileId);
-    $assert(is_array($deliveryRecord) && $deliveryRecord['original_filename'] === 'sample.xlsx', 'el repositorio recupera el archivo y contexto histórico para reenviar; id=' . $mailFileId . ', department_files=' . count($reportRepository->departmentFiles($mailTestRunId)) . ', delivery=' . json_encode($deliveryRecord, JSON_UNESCAPED_SLASHES));
+    $assert(is_array($deliveryRecord) && $deliveryRecord['original_filename'] === 'Reporte semanal Nóminas.xlsx' && $deliveryRecord['run_id'] === $mailTestRunId, 'el repositorio recupera el archivo renombrado y su contexto histórico para reenviar');
     $reportRepository->updateDelivery($mailFileId, 'sent', '', ['sent' => ['test@example.com'], 'failed' => []]);
     $afterFirstSend = $reportRepository->departmentFiles($mailTestRunId)[0];
     $assert($afterFirstSend['delivery_status'] === 'sent' && (int) $afterFirstSend['mail_attempt_count'] === 1, 'el primer envío queda en el historial');
