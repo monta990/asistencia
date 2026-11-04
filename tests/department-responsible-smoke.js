@@ -26,5 +26,5 @@ assert(mailer.includes('$recipients[] = $responsibleEmail;'), 'mailer must alway
 assert(controller.includes('$departments->deliveryRecipients($departmentId)'), 'history resend must resolve the responsible as a delivery recipient');
 assert(controller.includes('$departments->responsibleEmail($departmentId)'), 'history resend must pass responsible address');
 assert(controller.includes('$departments->responsibleEmail((int) $file[\'department_id\'])'), 'new sends must pass responsible address');
-assert(version.includes("VERSION = '1.2.19'") && version.includes('SCHEMA_TARGET = 5'), 'application and schema versions must be updated');
+assert(version.includes("VERSION = '1.2.20'") && version.includes('SCHEMA_TARGET = 5'), 'application and schema versions must be updated');
 console.log('OK: responsable del departamento, persistencia, migración 002 y exclusión en Reply-To para envíos y reenvíos.');
