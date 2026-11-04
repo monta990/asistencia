@@ -11,6 +11,7 @@ const mailView = read('views/pages/mail.php');
 const controller = read('index.php');
 const signature = read('src/Services/SignatureImage.php');
 const brandLogo = read('src/Services/BrandLogo.php');
+const brandLogo = read('src/Services/BrandLogo.php');
 const mailer = read('src/Services/MailerService.php');
 const version = read('src/Core/Version.php');
 assert(layout.includes('data-help-open') && layout.includes('id="help-modal"'), 'Help button/modal are missing');
@@ -21,6 +22,7 @@ assert(mailView.includes('enctype="multipart/form-data"') && mailView.includes('
 assert(mailView.includes('name="remove_signature_image"'), 'SMTP settings must allow removing the current signature');
 assert(controller.includes('SignatureImage::store') && controller.includes('signature_preview'), 'Signature upload/preview controller routes are missing');
 assert(signature.includes('MAX_BYTES = 2_097_152') && signature.includes('image/webp'), 'Signature size and MIME validation are missing');
+assert(brandLogo.includes('brand-logo-') && brandLogo.includes('image/webp'), 'brand logo must use its own private asset service, separate from SMTP signature');
 assert(brandLogo.includes('brand-logo-') && brandLogo.includes('image/webp'), 'brand logo must use its own private asset service, separate from SMTP signature');
 assert(mailer.includes("'content_id' => 'zktime-signature@local'"), 'Mailer must attach a stable CID for the inline signature');
 assert(version.includes("VERSION = '1.2.20'"), 'Version must be 1.2.4');
