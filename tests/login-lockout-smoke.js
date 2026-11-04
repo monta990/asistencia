@@ -12,7 +12,7 @@ const users = read('src/Repositories/UserRepository.php');
 const index = read('index.php');
 const view = read('views/pages/users.php');
 
-assert(version.includes("VERSION = '1.2.19'") && version.includes('SCHEMA_TARGET = 5') && version.includes('LOCKOUT_SCHEMA = 5'), 'release must target lockout schema 5');
+assert(version.includes("VERSION = '1.2.20'") && version.includes('SCHEMA_TARGET = 5') && version.includes('LOCKOUT_SCHEMA = 5'), 'release must target lockout schema 5');
 for (const column of ['failed_login_attempts', 'locked_until', 'session_version']) assert(migration.includes(`ADD COLUMN ${column}`), `${column} migration missing`);
 assert(migration.includes('CREATE INDEX idx_users_locked_until'), 'locked account lookup index missing');
 assert(auth.includes('DEFAULT_MAX_ATTEMPTS = 5') && auth.includes('DEFAULT_LOCKOUT_MINUTES = 10'), 'defaults must be five attempts and ten minutes');
