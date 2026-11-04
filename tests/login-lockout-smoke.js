@@ -16,8 +16,9 @@ assert(version.includes("VERSION = '1.2.19'") && version.includes('SCHEMA_TARGET
 for (const column of ['failed_login_attempts', 'locked_until', 'session_version']) assert(migration.includes(`ADD COLUMN ${column}`), `${column} migration missing`);
 assert(migration.includes('CREATE INDEX idx_users_locked_until'), 'locked account lookup index missing');
 assert(auth.includes('DEFAULT_MAX_ATTEMPTS = 5') && auth.includes('DEFAULT_LOCKOUT_MINUTES = 10'), 'defaults must be five attempts and ten minutes');
-assert(auth.includes('locked_until = CASE WHEN failed_login_attempts + 1 >= :max_attempts'), 'failed attempts must be counted atomically in SQLite');
-assert(auth.includes('session_version = CASE WHEN failed_login_attempts + 1 >= :max_attempts THEN session_version + 1'), 'locking an account must revoke its active sessions');
+assert(auth.includes('locked_until = CASE WHEN failed_login_attempts + 1 >= :lockout_threshold'), 'failed attempts must be counted atomically in SQLite');
+assert(auth.includes('session_version = CASE WHEN failed_login_attempts + 1 >= :session_threshold THEN session_version + 1'), 'locking an account must revoke its active sessions');
+assert(auth.includes("'lockout_threshold' => $maxAttempts") && auth.includes("'session_threshold' => $maxAttempts"), 'both SQLite threshold placeholders must bind to the configured limit');
 assert(auth.includes("SELECT setting_value FROM settings WHERE setting_key = 'security'"), 'lockout policy must be read from persisted settings');
 assert(auth.includes('knownSessionVersion !== $sessionVersion') && auth.includes('locked_until'), 'each authenticated request must verify lock state and session version');
 assert(auth.includes('AND session_version = :session_version') && auth.includes('AND (locked_until IS NULL OR locked_until <= :now)'), 'successful login must not race past a concurrent account lock or account change');
