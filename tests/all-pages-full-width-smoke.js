@@ -9,7 +9,7 @@ const version = fs.readFileSync(path.join(root, 'src/Core/Version.php'), 'utf8')
 const pagesDir = path.join(root, 'views/pages');
 const pages = fs.readdirSync(pagesDir).filter((name) => name.endsWith('.php'));
 
-assert.match(version, /VERSION\s*=\s*'1\.2\.19'/, 'application version must be 1.2.19');
+assert.match(version, /VERSION\s*=\s*'1\.2\.20'/, 'application version must be 1.2.20');
 assert.match(layout, /<section class=\"page-content\">/, 'authenticated page wrapper must be shared');
 assert.doesNotMatch(layout, /page-content\?\s*<\?=|page-content-wide/, 'full-width behavior must not depend on the selected page');
 assert.match(css, /\.page-content\{width:100%;max-width:none;flex:1;margin:0;/, 'shared content wrapper must span the main area without a max-width cap');
