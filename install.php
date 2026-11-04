@@ -377,10 +377,10 @@ $intro = $isLegacyUpgrade
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#006ECA"><meta name="robots" content="noindex,nofollow">
   <title>Instalación | Control de asistencia</title>
-  <link rel="stylesheet" href="assets/app.css?v=1.2.19">
-  <link rel="stylesheet" href="assets/theme.css?v=1.2.19">
-  <link rel="stylesheet" href="assets/install.css?v=1.2.19">
-  <script src="assets/theme.js?v=1.2.19"></script>
+  <link rel="stylesheet" href="assets/app.css?v=1.2.20">
+  <link rel="stylesheet" href="assets/theme.css?v=1.2.20">
+  <link rel="stylesheet" href="assets/install.css?v=1.2.20">
+  <script src="assets/theme.js?v=1.2.20"></script>
 </head>
 <body class="login-page install-page">
   <main class="install-shell">
