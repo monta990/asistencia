@@ -1,6 +1,6 @@
 # ZKTimeNet Personal Framework 1.2.20 — sin Composer
 
-Aplicación interna para Nóminas que procesa el reporte XLSX de ZKTimeNet, separa los registros por departamento, genera Excel individuales y un ZIP general, y opcionalmente distribuye cada Excel por correo. Incluye identidad visual configurable con carga segura del logotipo de la empresa.
+Aplicación interna para Nóminas que procesa el reporte XLSX de ZKTimeNet, separa los registros por departamento, genera Excel individuales y un ZIP general, y opcionalmente distribuye cada Excel por correo. Incluye identidad visual configurable con carga segura del logotipo de la empresa. La versión 1.2.20 continúa utilizando el flujo XLSX de entrada; la comunicación directa con los checadores se mantiene como una evolución futura.
 
 ## Plataforma
 
