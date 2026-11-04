@@ -131,17 +131,37 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          missing=0
-          while read -r checksum file; do
-            [[ -z "${checksum:-}" || "${checksum:0:1}" == "#" ]] && continue
-            file="${file#./}"
-            if [[ ! -f "$file" ]]; then
-              echo "INFO: checksum entry is not present in this IIS repository: $file"
-              continue
-            fi
-            printf '%s  %s\n' "$checksum" "$file"
-          done < SHA256SUMS.txt | sha256sum --check
-          test "$missing" -eq 0
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          from pathlib import Path
+
+          manifest = Path("SHA256SUMS.txt")
+          checked = 0
+          missing = []
+          failures = []
+          for raw in manifest.read_text(encoding="utf-8").splitlines():
+              line = raw.strip()
+              if not line or line.startswith("#"):
+                  continue
+              expected, relative = line.split(None, 1)
+              relative = relative.lstrip("*").removeprefix("./")
+              path = Path(relative)
+              if not path.is_file():
+                  missing.append(relative)
+                  continue
+              actual = hashlib.sha256(path.read_bytes()).hexdigest()
+              if actual != expected:
+                  failures.append(relative)
+              checked += 1
+          for item in missing:
+              print(f"INFO: checksum entry absent from IIS repository: {item}")
+          if failures:
+              raise SystemExit("Checksum mismatch: " + ", ".join(failures))
+          if checked == 0:
+              raise SystemExit("No checksum entries were validated.")
+          print(f"Verified {checked} present-file SHA-256 entries.")
+          PY
 
       - name: Prevent runtime secrets and databases in Git
         shell: bash
