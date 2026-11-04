@@ -79,7 +79,7 @@ d7f21345f79ce6e92af875138ee59b3937ec458af673fd05124d69441c79731d  ./tests/instal
 fb995046091852bb180041dd6447e83ca762150d727a6c66d76c7de5eaaa5b76  ./tests/session-proxy-smoke.php
 d9cad5432ec34163c35213ebb03384e0bf1d8462e89a411f63defb0e76d314b9  ./tests/signature-help-smoke.js
 b0161d1a04c2cb8510b7ba02f8858ad82359f4803863178bd28c691bcd4828b2  ./tests/signature-image-smoke.php
-449313ba71f078129923b15fc31bee969960f1498c2036de3101a11586e81cbe  ./tests/smoke.php
+c9f9d67a30f2bde8343b14db7e8d587471266836a39ba61c59773856404f3ea9  ./tests/smoke.php
 a6fd890a3272b8ad05f6e8e9450498501550cfddb7563f2df5e3d54c682113ec  ./tests/smtp-reply-to-smoke.js
 9397b44526fa16c5b2575052f3ac2f8d99de57f8269eeac942d0ee224b65b6da  ./tests/smtp-reply-to-smoke.php
 93e78232f1de9b5bf84bcc5bbd49ca903ceade03a50361814f7165b7ba2aedf8  ./tests/table-actions-layout-smoke.js
