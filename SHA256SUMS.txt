@@ -55,7 +55,7 @@ c9cd4050a1fb2bb25c68870928ba650643e01e04cec297fbd230599b8838afb3  ./storage/.hta
 c9cd4050a1fb2bb25c68870928ba650643e01e04cec297fbd230599b8838afb3  ./tests/.htaccess
 5e06166314bd4dd59f748c5e75da4b80eec3503dc66342da6131807a3e3ddf95  ./tests/account-lockout-smoke.php
 edb2b3627c5fcc93e9e70eda59e55056b5d0050abfbae2c30c50c0f26638a14c  ./tests/all-pages-full-width-smoke.js
-1dffb361f1cf08f98abce9833dfe2735c8a22f3302c41c7b135d1ff899c04da5  ./tests/bootstrap-access-smoke.js
+62f2b0e0e157f9f6866e2512d3e93114e5fa2b388cadb0e4f7de45a569f0de39  ./tests/bootstrap-access-smoke.js
 aaa5d97abfdf0386968109d87e311eff6d3d297457ef536fb92b3af8ea934b17  ./tests/branding-smoke.js
 53f8b65bfad9bd2ef0b9ac60ce773e7f9ab6304205afcb2c9e28ba8ea0436398  ./tests/bulk-mail-smoke.js
 4f945d4a8a6743276dc90844a9232a0a9ff5478c9fc4035bcf1354182b631969  ./tests/bulk-mail-visual-smoke.js
