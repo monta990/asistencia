@@ -31,4 +31,4 @@ La garantía de atomicidad aplica a las operaciones SQLite transaccionales. Cons
 
 - `005_account_lockout_and_sessions.php`: contador persistente de intentos fallidos, fecha de desbloqueo y versión de sesión por usuario.
 
-El esquema objetivo de 1.2.19 es 5. La siguiente migración disponible es `006_*.php`. Las migraciones 001 a 005 no deben editarse ni renombrarse después de aplicarse.
+El esquema objetivo de 1.2.20 es 5. La siguiente migración disponible es `006_*.php`. Las migraciones 001 a 005 no deben editarse ni renombrarse después de aplicarse.
