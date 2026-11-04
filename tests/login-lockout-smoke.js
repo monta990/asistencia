@@ -33,4 +33,5 @@ assert(view.includes('name="lockout_minutes"') && view.includes('value="<?= $loc
 assert(view.includes('Desbloquear') && view.includes("$row['role'] === 'admin'"), 'user list must expose locked administrators to unlock');
 console.log('OK: persistent account lockout, configurable policy, admin unlock and session revocation coverage.');
 
-assert(auth.includes('failed_login_attempts = failed_login_attempts + 1'), 'locked users must retain the threshold count for the admin UI');
+assert(auth.includes('$nextCount = (int) $currentCount + 1') && auth.includes('failed_login_attempts = :attempts'), 'locked users must retain the computed threshold count for the admin UI');
+assert(auth.includes("$pdo->exec('BEGIN IMMEDIATE')") && auth.includes('if ($nextCount >= $maxAttempts)'), 'lockout must serialize attempts and enforce the configured threshold');
