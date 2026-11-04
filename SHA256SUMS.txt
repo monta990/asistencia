@@ -29,7 +29,7 @@ b705cd0d95c1e89c85fb41a5d5a2035249ce515665a8f8a0390cf90750e36e5b  ./install.php
 599b8c86f94d8e46214fc7d8592f41cbc304b432499dab068e387c7bc8388781  ./login.php
 4671fe56af3e72c7032e7acbfcdc13e738ce4657681a8a77980fac79a03e4085  ./logout.php
 c9cd4050a1fb2bb25c68870928ba650643e01e04cec297fbd230599b8838afb3  ./src/.htaccess
-781b341afc8351ec48d6c9e6e4ffb1b9d2b08919a553920e1c7eb9ff623deca1  ./src/Core/Auth.php
+c045ac08acd74df8b089706012cb194bce22f36d1d1aada1eae55f4fc96d8d95  ./src/Core/Auth.php
 924061d0c17fcf2d0c0729abc18376b566a29722b21bc042beb9eb70f409fd61  ./src/Core/Config.php
 ed1a3afbdcfd896ab064b2703a903b10c0b0f7aa5dd4bebcd4fe5c647c728999  ./src/Core/Csrf.php
 ea83ccfc16cd0b5912c5a5e0c5f65536896271eb9c6ed6e6e0291889d123b788  ./src/Core/Database.php
@@ -53,7 +53,7 @@ de6fa149776c8c4e26d16ec779d6b529ef5218bf4d0cc460609778c14f162f86  ./src/Services
 0397e0be8d7d3b6e14fea89027683dd232d09f41b90a8a3588e8a50c238a98d6  ./src/Services/TemplateRenderer.php
 c9cd4050a1fb2bb25c68870928ba650643e01e04cec297fbd230599b8838afb3  ./storage/.htaccess
 c9cd4050a1fb2bb25c68870928ba650643e01e04cec297fbd230599b8838afb3  ./tests/.htaccess
-de239df74cea794b284cb4a4aeae867de9e4778079d24b981c2ca3a4e5d26895  ./tests/account-lockout-smoke.php
+7e910327e3cf65977c675844d8bfd455e8b00c3858c69406c7a08958d25e2a9f  ./tests/account-lockout-smoke.php
 edb2b3627c5fcc93e9e70eda59e55056b5d0050abfbae2c30c50c0f26638a14c  ./tests/all-pages-full-width-smoke.js
 62f2b0e0e157f9f6866e2512d3e93114e5fa2b388cadb0e4f7de45a569f0de39  ./tests/bootstrap-access-smoke.js
 aaa5d97abfdf0386968109d87e311eff6d3d297457ef536fb92b3af8ea934b17  ./tests/branding-smoke.js
@@ -74,12 +74,12 @@ a12ab168cd0f0c86d26e436f01bae831bed72a0a7d15024a54d2564d872627d3  ./tests/error-
 58efa13b0c4da591203fd495e0171507595716d700d9b5a67c8531a663ca5c7b  ./tests/history-mail-smoke.js
 e6be7186b442f34618f4b2f4bbe0bad46f3387d9a5f0dfd7d730af2979702292  ./tests/installation-state-smoke.php
 d7f21345f79ce6e92af875138ee59b3937ec458af673fd05124d69441c79731d  ./tests/installer-smoke.js
-07812117cdde4cfdb1fbb6a811b069b6a371935362b1b68c3622bf86989b1763  ./tests/login-lockout-smoke.js
+80fdb46efc0cd78ce1302d618d26f46151f0c97425f8dc5aa4a683e7f32d7e48  ./tests/login-lockout-smoke.js
 184d7acfd9d42a97d562a54e5e98891c89488020ead7ff0933f00a4d49721426  ./tests/session-hardening-smoke.js
 fb995046091852bb180041dd6447e83ca762150d727a6c66d76c7de5eaaa5b76  ./tests/session-proxy-smoke.php
 d9cad5432ec34163c35213ebb03384e0bf1d8462e89a411f63defb0e76d314b9  ./tests/signature-help-smoke.js
 b0161d1a04c2cb8510b7ba02f8858ad82359f4803863178bd28c691bcd4828b2  ./tests/signature-image-smoke.php
-003d7a67b31e7d112d4c500092ecb370b6dd3ef74cb13e7580ff7ca15bf26303  ./tests/smoke.php
+8c5beb24b0dfe7df4b01748ae77876b7efb40b439dfc9b39be4ee89806dc78d2  ./tests/smoke.php
 a6fd890a3272b8ad05f6e8e9450498501550cfddb7563f2df5e3d54c682113ec  ./tests/smtp-reply-to-smoke.js
 9397b44526fa16c5b2575052f3ac2f8d99de57f8269eeac942d0ee224b65b6da  ./tests/smtp-reply-to-smoke.php
 93e78232f1de9b5bf84bcc5bbd49ca903ceade03a50361814f7165b7ba2aedf8  ./tests/table-actions-layout-smoke.js
