@@ -1,6 +1,6 @@
 # Security review — ZKTimeNet 1.2.18 (baseline)
 
-La versión 1.2.19 solo cambia el layout global y la invalidación de caché frontend; no modifica controles, permisos, autenticación, sesiones, datos ni endpoints de seguridad.
+La versión 1.2.20 agrega carga de logotipo raster con validación de contenido, MIME y dimensiones, nombre de archivo aleatorio y almacenamiento privado fuera del DocumentRoot. La ruta `index.php?action=brand_logo` publica únicamente el recurso de marca activo para mostrarlo en el login sin autenticación; resuelve el archivo exclusivamente desde metadatos de SQLite y `BrandLogo::resolve`, nunca acepta rutas desde el cliente, devuelve MIME validado y `X-Content-Type-Options: nosniff`. La operación de carga/eliminación se mantiene protegida por sesión Administrador y CSRF. No cambia el esquema SQLite.
 
 ## S-02 — Bloqueo persistente de cuentas
 
