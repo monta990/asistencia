@@ -31,6 +31,6 @@ assert(installer.includes('flock($installationLock, LOCK_EX)'), 'installer must 
 assert(installer.includes('$prospectiveState = InstallationState::inspect($prospectiveDatabase)'), 'installer must reject a selected path containing an existing database before saving its path');
 assert(state.includes('PDO::ATTR_TIMEOUT'), 'installation inspection should use a bounded SQLite connection timeout');
 assert(state.includes('needs_admin_setup\' => $version < Version::USER_AUTH_SCHEMA'), 'unknown schema-0 databases must be routed to the installer safety check');
-assert(version.includes("VERSION = '1.2.19'"), 'application version must be bumped');
+assert(version.includes("VERSION = '1.2.20'"), 'application version must be bumped');
 assert(migration.includes("Config::get('admin_password_hash'"), 'historical migration must remain unchanged and receive a runtime hash');
 console.log('OK: primera instalación, ruta de datos y contraseña administrativa');
