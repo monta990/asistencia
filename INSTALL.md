@@ -1,8 +1,14 @@
-# Instalación y actualización — ZKTimeNet Personal Framework 1.2.19
+# Instalación y actualización — ZKTimeNet Personal Framework 1.2.20
 
 ## Requisitos mínimos
 
-La versión 1.2.19 utiliza el ancho completo del área principal en todas las pantallas autenticadas. Es un cambio de presentación; no requiere migración ni modifica los datos existentes.
+La versión 1.2.20 agrega carga de logotipo en **Sistema → Identidad visual**. Es compatible con el esquema SQLite 5 y no requiere migración. La imagen se conserva en el directorio privado externo de datos y se incluye automáticamente en los respaldos completos.
+
+## Logotipo de la empresa
+
+En **Sistema → Identidad visual**, selecciona una imagen PNG, JPG/JPEG, GIF o WebP (máximo 2 MB, 2400 × 1200 píxeles y 2.5 megapíxeles). La vista previa se actualiza antes de guardar. Puedes reemplazar el archivo o marcar **Quitar logotipo y usar las siglas**. Cuando no hay una imagen válida configurada, el sistema conserva el recuadro con las siglas como alternativa.
+
+El archivo se almacena fuera del DocumentRoot, en el directorio privado que ya utiliza la aplicación. No se requieren permisos IIS adicionales, extensiones PHP nuevas ni migraciones. Conserva juntos `private/zktime.sqlite`, `private/app.key` y el contenido del directorio privado al respaldar o restaurar la instalación. El logo es parte de los archivos privados que incluye el respaldo completo.
 
 - Windows Server + IIS + PHP **8.5 NTS** mediante FastCGI (también se detectan Apache, Nginx y entornos Linux/macOS).
 - Extensiones PHP: **`pdo_sqlite`, `zip`, `dom`, `openssl`**.
