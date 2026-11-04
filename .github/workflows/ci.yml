@@ -127,6 +127,16 @@ jobs:
           test -s SHA256SUMS.txt
           test -s web.config
 
+      - name: Print current SHA-256 values for manifest reconciliation
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha256sum \
+            src/Core/Auth.php \
+            tests/account-lockout-smoke.php \
+            tests/login-lockout-smoke.js \
+            tests/smoke.php
+
       - name: Verify checksum entries that are part of this IIS repository
         shell: bash
         run: |
