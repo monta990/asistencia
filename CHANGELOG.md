@@ -1,3 +1,12 @@
+## 1.2.20 — Logotipo configurable en identidad visual
+
+- **Sistema → Identidad visual** ahora permite cargar, reemplazar y quitar el logotipo de la empresa, con vista previa inmediata antes de guardar.
+- Se aceptan PNG, JPG/JPEG, GIF y WebP de hasta 2 MiB, 2400 × 1200 píxeles y 2.5 megapíxeles. SVG y otros formatos se rechazan.
+- Los archivos se validan por contenido real y se guardan con nombre aleatorio en el directorio privado externo. El acceso de lectura sirve únicamente la imagen de marca configurada, con MIME validado y `nosniff`.
+- El logotipo aparece en la navegación lateral y la pantalla de acceso. Las siglas configuradas continúan como alternativa cuando no hay imagen.
+- El recurso se conserva en los respaldos completos porque estos copian el directorio privado. No requiere extensión PHP, permiso IIS adicional ni migración SQLite; el esquema permanece en 5.
+- Se agrega `tests/brand-logo-smoke.php` y se amplía `tests/branding-smoke.js`.
+
 ## 1.2.19 — Ancho completo en todas las pantallas
 
 - El contenedor principal autenticado ahora ocupa todo el ancho disponible del área de contenido, igual que la pantalla **Sistema → Actualizaciones**. Se elimina el límite global de 1,600 px que dejaba márgenes grandes en monitores amplios.
