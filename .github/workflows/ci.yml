@@ -2,9 +2,11 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
   pull_request:
-    branches: [main]
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
@@ -15,19 +17,21 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  php-tests:
-    name: PHP ${{ matrix.php }} tests
+  php:
+    name: PHP ${{ matrix.php }} / smoke tests
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        php: ['8.5', '8.6']
+        php:
+          - '8.5'
+          - '8.6'
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup PHP ${{ matrix.php }}
+      - name: Configure PHP ${{ matrix.php }}
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
@@ -35,15 +39,17 @@ jobs:
           extensions: pdo_sqlite, sqlite3, zip, dom, openssl
           tools: none
 
-      - name: Verify PHP runtime and required extensions
+      - name: Verify runtime
+        shell: bash
         run: |
+          set -euo pipefail
           php --version
           php -m
           php -r '
             $required = ["pdo_sqlite", "zip", "dom", "openssl"];
             $missing = array_values(array_filter($required, static fn ($ext) => !extension_loaded($ext)));
             if ($missing !== []) {
-                fwrite(STDERR, "Missing required extensions: " . implode(", ", $missing) . PHP_EOL);
+                fwrite(STDERR, "Missing required PHP extensions: " . implode(", ", $missing) . PHP_EOL);
                 exit(1);
             }
             if (!in_array("sqlite", PDO::getAvailableDrivers(), true)) {
@@ -52,15 +58,17 @@ jobs:
             }
           '
 
-      - name: PHP syntax checks
+      - name: Lint PHP sources
+        shell: bash
         run: |
           set -euo pipefail
-          find . -path './.git' -prune -o -path './.github' -prune -o -name '*.php' -type f -print0 |
-            while IFS= read -r -d '' file; do
-              php -l "$file"
-            done
+          while IFS= read -r -d '' file; do
+            php -l "$file"
+          done < <(find . -path './.git' -prune -o -path './.github' -prune -o -name '*.php' -type f -print0)
+          php -l bin/zknet
 
-      - name: PHP smoke and integration tests
+      - name: Run PHP smoke tests
+        shell: bash
         run: |
           set -euo pipefail
           for test in tests/*-smoke.php; do
@@ -72,33 +80,31 @@ jobs:
           php tests/smoke.php
           echo "::endgroup::"
 
-      - name: Validate CLI entry point
-        run: php -l bin/zknet
-
-  javascript-tests:
-    name: JavaScript smoke tests
+  javascript:
+    name: JavaScript smoke tests (Node 22)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Configure Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
 
-      - name: Node.js syntax checks
+      - name: Check JavaScript syntax
+        shell: bash
         run: |
           set -euo pipefail
           node --version
-          find tests -maxdepth 1 -type f -name '*.js' -print0 |
-            while IFS= read -r -d '' file; do
-              node --check "$file"
-            done
+          while IFS= read -r -d '' file; do
+            node --check "$file"
+          done < <(find tests -maxdepth 1 -type f -name '*.js' -print0)
           node --check assets/app.js
           node --check assets/theme.js
 
       - name: Run JavaScript smoke tests
+        shell: bash
         run: |
           set -euo pipefail
           count=0
@@ -110,26 +116,45 @@ jobs:
           done
           echo "Executed $count JavaScript smoke tests."
 
-  repository-integrity:
-    name: Repository and migration integrity
+  integrity:
+    name: Repository integrity
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Verify migration checksums and repository metadata
+      - name: Check required project files
         shell: bash
         run: |
           set -euo pipefail
-          test -f HANDOFF.md
-          test -f INSTALL.md
-          test -f SECURITY-REVIEW.md
-          test -f SHA256SUMS.txt
-          test -f web.config
-          grep -q '001_initial.php' database/migrations/README.md
-          grep -q '005_account_lockout_and_sessions.php' database/migrations/README.md
+          for file in README.md CHANGELOG.md HANDOFF.md INSTALL.md SECURITY-REVIEW.md SHA256SUMS.txt web.config; do
+            test -s "$file"
+          done
+
+      - name: Verify tracked checksum manifest
+        shell: bash
+        run: |
+          set -euo pipefail
           sha256sum --check SHA256SUMS.txt
-          if find . -type f \( -name '*.sqlite' -o -name '*.db' -o -name 'app.key' \) -not -path './.git/*' | grep -q .; then
-            echo "Unexpected runtime database or encryption key committed to the repository." >&2
+
+      - name: Prevent runtime secrets and databases in Git
+        shell: bash
+        run: |
+          set -euo pipefail
+          if find . -type f \\( -name '*.sqlite' -o -name '*.sqlite3' -o -name '*.db' -o -name 'app.key' \\) -not -path './.git/*' | grep -q .; then
+            echo "Runtime database or encryption key must not be committed." >&2
             exit 1
           fi
+
+      - name: Ensure historical migrations are present
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in \\
+            database/migrations/001_initial.php \\
+            database/migrations/002_department_responsible.php \\
+            database/migrations/003_user_accounts_and_roles.php \\
+            database/migrations/004_department_discovery.php \\
+            database/migrations/005_account_lockout_and_sessions.php; do
+            test -s "$file"
+          done
