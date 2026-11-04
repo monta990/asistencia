@@ -114,7 +114,7 @@ final class Auth
                     }
                 }
                 $pdo->commit();
-            } catch (\\Throwable $exception) {
+            } catch (\Throwable $exception) {
                 if ($pdo->inTransaction()) {
                     $pdo->rollBack();
                 }
