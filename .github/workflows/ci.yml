@@ -2,11 +2,9 @@ name: CI
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   pull_request:
-    branches:
-      - main
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -23,13 +21,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        php:
-          - '8.5'
-          - '8.6'
-
+        php: ['8.5', '8.6']
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Configure PHP ${{ matrix.php }}
         uses: shivammathur/setup-php@v2
@@ -39,7 +33,7 @@ jobs:
           extensions: pdo_sqlite, sqlite3, zip, dom, openssl
           tools: none
 
-      - name: Verify runtime
+      - name: Verify PHP runtime
         shell: bash
         run: |
           set -euo pipefail
@@ -84,8 +78,7 @@ jobs:
     name: JavaScript smoke tests (Node 22)
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Configure Node.js
         uses: actions/setup-node@v4
@@ -120,8 +113,7 @@ jobs:
     name: Repository integrity
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Check required project files
         shell: bash
@@ -141,7 +133,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if find . -type f \\( -name '*.sqlite' -o -name '*.sqlite3' -o -name '*.db' -o -name 'app.key' \\) -not -path './.git/*' | grep -q .; then
+          if find . -type f \( -name '*.sqlite' -o -name '*.sqlite3' -o -name '*.db' -o -name 'app.key' \) -not -path './.git/*' | grep -q .; then
             echo "Runtime database or encryption key must not be committed." >&2
             exit 1
           fi
@@ -150,11 +142,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for file in \\
-            database/migrations/001_initial.php \\
-            database/migrations/002_department_responsible.php \\
-            database/migrations/003_user_accounts_and_roles.php \\
-            database/migrations/004_department_discovery.php \\
-            database/migrations/005_account_lockout_and_sessions.php; do
+          for file in             database/migrations/001_initial.php             database/migrations/002_department_responsible.php             database/migrations/003_user_accounts_and_roles.php             database/migrations/004_department_discovery.php             database/migrations/005_account_lockout_and_sessions.php; do
             test -s "$file"
           done
