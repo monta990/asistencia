@@ -64,7 +64,7 @@ e30110d39ba385973828e16ac8d6940f5977fabcdc5511f30925d1c32ab7dddd  ./tests/bulk-m
 7f360d407cf154faf3ef7ef0e4db28dcc3ba1a1b05016a52d35ce11e1574209a  ./tests/bulk-modal-confirmation-smoke.js
 993c2ec0475dd45312e0cede48a1714e761ab460fb9fe094cc4307320c54d985  ./tests/button-icons-smoke.js
 c9626c675d6d38395353e28b15e57c680294399bdd91d7ffdc95971795a220ed  ./tests/configuration-backup-smoke.js
-afb2a6ad5014ce62e4dae671505563f6ce430f16690dec4405214aac77ae57e9  ./tests/configuration-backup-smoke.php
+a5ced030011bffdf25379ce79fa05db42649dfb6baf7ebaa374cf33b37e64b1a  ./tests/configuration-backup-smoke.php
 224c6706004e5ee4850e85f5d8a249fcc34729e81a5cb3223b35fa2deb248332  ./tests/dashboard-layout-smoke.js
 8071c4ea671bc50d94aee3ed0bedd04bc39c192e77ba83a33638ecbddc3f9322  ./tests/dashboard-role-smoke.js
 c262548d0887cf4976c74209b94e7bfe8dd7d8ed32d783422831924a2dc7511b  ./tests/department-delivery-recipients-smoke.php
