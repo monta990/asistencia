@@ -136,7 +136,7 @@ try {
     $assert($result['files'][2]['newly_discovered'] === true && !$result['files'][2]['department_enabled'] && $result['files'][2]['needs_configuration'], 'un departamento desconocido se agrega automáticamente, se genera su Excel y queda pendiente de configuración');
     $autoDiscovered = $departmentRepository->findByReportLabel('AREA NUEVA XLSX');
     $assert(is_array($autoDiscovered) && (int) $autoDiscovered['enabled'] === 0 && (int) $autoDiscovered['needs_configuration'] === 1, 'la etiqueta nueva del propio XLSX queda en el catálogo deshabilitada hasta revisarla');
-    $assert($result['weeks'] === ['44'], 'se detecta la semana ISO 44');
+    $assert($result['weeks'] === ['44'], 'se detecta la semana ISO 44; obtenido=' . json_encode(['weeks' => $result['weeks'], 'start_date' => $result['start_date'], 'end_date' => $result['end_date'], 'files' => array_column($result['files'], 'start_date')], JSON_UNESCAPED_SLASHES));
     $assert(is_file($result['zip_path']), 'se genera el ZIP general');
 
     // El historial debe permitir enviar por primera vez y reenviar archivos ya enviados.
