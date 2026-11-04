@@ -30,16 +30,16 @@ $roleLabel = ($user['role'] ?? '') === 'admin' ? 'Administrador' : 'Nominista';
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#006ECA">
   <title><?= Html::escape($pageTitle) ?> | <?= Html::escape($branding['company_name']) ?></title>
-  <script src="assets/theme.js?v=1.2.19"></script>
-  <link rel="stylesheet" href="assets/app.css?v=1.2.19">
-  <link rel="stylesheet" href="assets/theme.css?v=1.2.19">
-  <script src="assets/app.js?v=1.2.19" defer></script>
+  <script src="assets/theme.js?v=1.2.20"></script>
+  <link rel="stylesheet" href="assets/app.css?v=1.2.20">
+  <link rel="stylesheet" href="assets/theme.css?v=1.2.20">
+  <script src="assets/app.js?v=1.2.20" defer></script>
 </head>
 <body class="app-body">
 <div class="app-shell">
   <aside class="sidebar" id="sidebar">
     <a class="brand" href="index.php" aria-label="Inicio">
-      <span class="brand-mark"><?= Html::escape($branding['brand_mark']) ?></span>
+      <?php if ($brandLogoAvailable): ?><img class="brand-logo-image" src="<?= Html::escape($brandLogoUrl) ?>" alt="Logotipo de <?= Html::escape($branding['company_name']) ?>"><?php else: ?><span class="brand-mark"><?= Html::escape($branding['brand_mark']) ?></span><?php endif; ?>
       <span class="brand-copy"><strong><?= Html::escape($branding['company_name']) ?></strong><small><?= Html::escape($branding['brand_tagline']) ?></small></span>
     </a>
     <div class="side-caption"><?= Html::escape($branding['platform_label']) ?></div>
