@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/vendor/autoload.php';
 
-use ZkTimeNet\\Services\\BrandLogo;
+use ZkTimeNet\Services\BrandLogo;
 
 function brandLogoCheck(bool $condition, string $message): void
 {
@@ -41,4 +41,4 @@ try {
     @rmdir($directory);
 }
 
-echo "OK: almacenamiento privado, MIME raster, integridad, traversal y eliminación de logotipo.\\n";
+echo "OK: almacenamiento privado, MIME raster, integridad, traversal y eliminación de logotipo.\n";
