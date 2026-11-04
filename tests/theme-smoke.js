@@ -111,8 +111,8 @@ assert.strictEqual(metaAttributes.content, '#006ECA');
 
 for (const file of ['views/layout.php', 'login.php']) {
   const html = fs.readFileSync(path.join(root, file), 'utf8');
-  assert(html.includes('assets/theme.js?v=1.2.19'));
-  assert(html.includes('assets/app.js?v=1.2.19'));
+  assert(html.includes('assets/theme.js?v=1.2.20'));
+  assert(html.includes('assets/app.js?v=1.2.20'));
 }
 
 console.log('OK: Sistema -> Claro -> Oscuro -> Sistema; cookie en /nominas/; detección del sistema y caché versionada.');
