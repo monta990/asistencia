@@ -23,8 +23,9 @@ if (Auth::check() && Auth::refresh($pdo)) {
 $brandingDefaults = (array) Config::get('branding_defaults', []);
 $brandingSaved = (new SettingsRepository($pdo))->get('branding', []);
 $branding = array_replace($brandingDefaults, is_array($brandingSaved) ? $brandingSaved : []);
+$logoFilename = is_array($branding['logo_image'] ?? null) ? (string) ($branding['logo_image']['filename'] ?? '') : '';
 $brandLogoAvailable = BrandLogo::resolve($branding['logo_image'] ?? null, (string) Config::get('storage_private')) !== null;
-$brandLogoUrl = 'index.php?action=brand_logo&v=' . substr(hash('sha256', (string) (($branding['logo_image']['filename'] ?? ''))), 0, 12);
+$brandLogoUrl = 'index.php?action=brand_logo&v=' . substr(hash('sha256', $logoFilename), 0, 12);
 $migrationStatus = (new MigrationManager($pdo, __DIR__ . '/database/migrations'))->status();
 $legacyUpdatePending = $migrationStatus['current'] < Version::USER_AUTH_SCHEMA;
 $systemUpdatePending = $migrationStatus['current'] >= Version::USER_AUTH_SCHEMA && $migrationStatus['current'] < Version::SCHEMA_TARGET;
