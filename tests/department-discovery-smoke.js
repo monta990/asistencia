@@ -4,7 +4,7 @@ const root = path.resolve(__dirname, '..');
 const read = (name) => fs.readFileSync(path.join(root, name), 'utf8');
 const assert = (condition, message) => { if (!condition) throw new Error(message); };
 const version = read('src/Core/Version.php');
-assert(version.includes("VERSION = '1.2.19'") && version.includes('SCHEMA_TARGET = 5'), 'release must target schema 4');
+assert(version.includes("VERSION = '1.2.20'") && version.includes('SCHEMA_TARGET = 5'), 'release must target schema 4');
 const migration = read('database/migrations/004_department_discovery.php');
 assert(migration.includes('needs_configuration') && migration.includes('DEFAULT 0'), 'migration must preserve existing departments as configured');
 const departmentRepo = read('src/Repositories/DepartmentRepository.php');
