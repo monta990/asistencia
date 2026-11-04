@@ -119,9 +119,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for file in README.md CHANGELOG.md HANDOFF.md INSTALL.md SECURITY-REVIEW.md SHA256SUMS.txt web.config; do
-            test -s "$file"
-          done
+          test -s README.md
+          test -s CHANGELOG.md
+          test -s HANDOFF.md
+          test -s INSTALL.md
+          test -s SECURITY-REVIEW.md
+          test -s SHA256SUMS.txt
+          test -s web.config
 
       - name: Verify tracked checksum manifest
         shell: bash
@@ -142,6 +146,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for file in             database/migrations/001_initial.php             database/migrations/002_department_responsible.php             database/migrations/003_user_accounts_and_roles.php             database/migrations/004_department_discovery.php             database/migrations/005_account_lockout_and_sessions.php; do
-            test -s "$file"
-          done
+          test -s database/migrations/001_initial.php
+          test -s database/migrations/002_department_responsible.php
+          test -s database/migrations/003_user_accounts_and_roles.php
+          test -s database/migrations/004_department_discovery.php
+          test -s database/migrations/005_account_lockout_and_sessions.php
