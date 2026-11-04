@@ -127,6 +127,11 @@ jobs:
           test -s SHA256SUMS.txt
           test -s web.config
 
+      - name: Print current release checksums (temporary)
+        shell: bash
+        run: |
+          sha256sum CHANGELOG.md database/migrations/README.md HANDOFF.md INSTALL.md install.php README.md SECURITY-REVIEW.md src/Services/ConfigurationBackup.php tests/configuration-backup-smoke.php tests/signature-help-smoke.js
+
       - name: Verify checksum entries that are part of this IIS repository
         shell: bash
         run: |
