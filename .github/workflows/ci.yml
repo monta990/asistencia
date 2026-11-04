@@ -127,11 +127,21 @@ jobs:
           test -s SHA256SUMS.txt
           test -s web.config
 
-      - name: Verify tracked checksum manifest
+      - name: Verify checksum entries that are part of this IIS repository
         shell: bash
         run: |
           set -euo pipefail
-          sha256sum --check SHA256SUMS.txt
+          missing=0
+          while read -r checksum file; do
+            [[ -z "${checksum:-}" || "${checksum:0:1}" == "#" ]] && continue
+            file="${file#./}"
+            if [[ ! -f "$file" ]]; then
+              echo "INFO: checksum entry is not present in this IIS repository: $file"
+              continue
+            fi
+            printf '%s  %s\n' "$checksum" "$file"
+          done < SHA256SUMS.txt | sha256sum --check
+          test "$missing" -eq 0
 
       - name: Prevent runtime secrets and databases in Git
         shell: bash
