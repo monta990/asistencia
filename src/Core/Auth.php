@@ -96,19 +96,30 @@ final class Auth
             $policy = self::lockoutPolicy($pdo);
             $maxAttempts = $policy['max_attempts'];
             $lockUntil = date(DATE_ATOM, $now + ($policy['lockout_minutes'] * 60));
-            // Una sola sentencia atómica evita perder incrementos cuando llegan dos intentos simultáneos.
-            $update = $pdo->prepare('UPDATE users SET
-                locked_until = CASE WHEN (SELECT failed_login_attempts + 1 FROM users AS current_user WHERE current_user.id = users.id) >= :lockout_threshold THEN :locked_until ELSE locked_until END,
-                session_version = CASE WHEN (SELECT failed_login_attempts + 1 FROM users AS current_user WHERE current_user.id = users.id) >= :session_threshold THEN session_version + 1 ELSE session_version END,
-                failed_login_attempts = failed_login_attempts + 1
-                WHERE id = :id AND is_active = 1 AND (locked_until IS NULL OR locked_until <= :now)');
-            $update->execute([
-                'lockout_threshold' => $maxAttempts,
-                'session_threshold' => $maxAttempts,
-                'locked_until' => $lockUntil,
-                'id' => $record['id'],
-                'now' => date(DATE_ATOM, $now),
-            ]);
+            // Reservar el escritor antes de leer el contador evita carreras entre intentos.
+            // Se confirma el incremento y el bloqueo en una sola transacción SQLite.
+            $pdo->exec('BEGIN IMMEDIATE');
+            try {
+                $current = $pdo->prepare('SELECT failed_login_attempts FROM users WHERE id = :id AND is_active = 1 AND (locked_until IS NULL OR locked_until <= :now)');
+                $current->execute(['id' => $record['id'], 'now' => date(DATE_ATOM, $now)]);
+                $currentCount = $current->fetchColumn();
+                if ($currentCount !== false) {
+                    $nextCount = (int) $currentCount + 1;
+                    if ($nextCount >= $maxAttempts) {
+                        $update = $pdo->prepare('UPDATE users SET failed_login_attempts = :attempts, locked_until = :locked_until, session_version = session_version + 1 WHERE id = :id AND is_active = 1');
+                        $update->execute(['attempts' => $nextCount, 'locked_until' => $lockUntil, 'id' => $record['id']]);
+                    } else {
+                        $update = $pdo->prepare('UPDATE users SET failed_login_attempts = :attempts WHERE id = :id AND is_active = 1');
+                        $update->execute(['attempts' => $nextCount, 'id' => $record['id']]);
+                    }
+                }
+                $pdo->commit();
+            } catch (\\Throwable $exception) {
+                if ($pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
+                throw $exception;
+            }
             usleep(250000);
             return false;
         }
