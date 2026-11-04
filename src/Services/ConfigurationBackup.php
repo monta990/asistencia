@@ -135,7 +135,7 @@ final class ConfigurationBackup
                 'config_source' => Config::get('data_root_from_environment') ? 'environment:ZKTIME_DATA_DIR' : 'config/local.php-or-platform-default',
                 'payload' => $payload,
                 'notes' => [
-                    'Includes SQLite, app.key, installation metadata, private signature assets, and permanent exports.',
+                    'Includes SQLite, app.key, installation metadata, private branding and signature assets, and permanent exports.',
                     'Excludes sessions, temporary uploads, log files, previous backups, and runtime lock files.',
                     'config/app.php and config/local.php are included as reference files and are not executed or overwritten during restore.',
                 ],
