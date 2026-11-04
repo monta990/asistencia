@@ -1,0 +1,65 @@
+#!/usr/bin/env php
+<?php
+declare(strict_types=1);
+
+use ZkTimeNet\Core\Config;
+use ZkTimeNet\Core\Database;
+use ZkTimeNet\Core\MigrationManager;
+use ZkTimeNet\Core\Version;
+
+require dirname(__DIR__) . '/bootstrap.php';
+
+$command = $argv[1] ?? 'help';
+if ($command === 'help') {
+    echo "La aplicación se inicializa automáticamente al abrir login.php o index.php en IIS.\n";
+    echo "Comandos disponibles:\n  php bin/zknet version\n  php bin/zknet db:status\n  php bin/zknet db:migrate\n  php bin/zknet cleanup\n";
+    exit(0);
+}
+
+try {
+    $pdo = Database::connection();
+    $migrator = new MigrationManager($pdo, dirname(__DIR__) . '/database/migrations');
+
+    if ($command === 'version') {
+        echo 'Aplicación ' . Version::VERSION . ' · esquema ' . $migrator->currentVersion() . '/' . Version::SCHEMA_TARGET . PHP_EOL;
+        exit(0);
+    }
+
+    if ($command === 'db:status') {
+        echo json_encode($migrator->status(), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) . PHP_EOL;
+        exit(0);
+    }
+
+    if ($command === 'db:migrate') {
+        $result = $migrator->migrate();
+        echo 'Migraciones aplicadas: ' . (count($result['applied']) ? implode(', ', $result['applied']) : 'ninguna') . PHP_EOL;
+        echo 'Respaldo previo: ' . ($result['backup'] ?? 'no requerido') . PHP_EOL;
+        exit(0);
+    }
+
+    if ($command === 'cleanup') {
+        // Los reportes procesados (XLSX y ZIP) son permanentes por defecto.
+        // Este comando únicamente retira cargas XLSX temporales huérfanas.
+        $days = max(1, (int) Config::get('temporary_upload_retention_days', 1));
+        $cutoff = time() - ($days * 86400);
+        $uploadsBase = (string) Config::get('storage_uploads');
+        $staleUploads = 0;
+        if (is_dir($uploadsBase)) {
+            foreach (new FilesystemIterator($uploadsBase, FilesystemIterator::SKIP_DOTS) as $item) {
+                if ($item->isFile() && $item->getMTime() < $cutoff) {
+                    @unlink($item->getPathname());
+                    $staleUploads++;
+                }
+            }
+        }
+        echo "Reportes XLSX/ZIP: permanentes (sin eliminación automática)." . PHP_EOL;
+        echo "Cargas temporales huérfanas eliminadas (>{$days} días): {$staleUploads}" . PHP_EOL;
+        exit(0);
+    }
+
+    fwrite(STDERR, "Comando desconocido. Ejecuta php bin/zknet help.\n");
+    exit(2);
+} catch (Throwable $exception) {
+    fwrite(STDERR, 'Error: ' . $exception->getMessage() . PHP_EOL);
+    exit(1);
+}

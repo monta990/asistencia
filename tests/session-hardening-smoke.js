@@ -1,0 +1,21 @@
+'use strict';
+const fs = require('node:fs');
+const path = require('node:path');
+const root = path.resolve(__dirname, '..');
+const read = (name) => fs.readFileSync(path.join(root, name), 'utf8');
+const assert = (condition, message) => { if (!condition) throw new Error(message); };
+
+const session = read('src/Core/Session.php');
+const auth = read('src/Core/Auth.php');
+const users = read('src/Repositories/UserRepository.php');
+assert(session.includes("ini_set('session.use_strict_mode', '1')"), 'strict session mode must be enabled');
+assert(session.includes("ini_set('session.use_only_cookies', '1')") && session.includes("ini_set('session.use_trans_sid', '0')"), 'session IDs must not travel in URLs');
+assert(session.includes("ini_set('session.cookie_httponly', '1')") && session.includes("'samesite' => 'Lax'"), 'session cookie security attributes missing');
+assert(session.includes("getenv('ZKTIME_TRUSTED_PROXIES')") && session.includes("$_SERVER['REMOTE_ADDR']"), 'forwarded HTTPS must be accepted only from an explicit trusted proxy');
+assert(session.includes("$_SERVER['HTTP_X_FORWARDED_PROTO']") && session.includes("in_array($remoteAddress, $trusted, true)"), 'untrusted forwarded proto must not be trusted');
+assert(auth.includes('knownSessionVersion !== $sessionVersion'), 'session version must be checked on authenticated requests');
+assert(users.includes('session_version = session_version + 1'), 'account changes must revoke sessions');
+const index = read('index.php');
+assert(index.includes('session_write_close()') && index.includes('Session::start()'), 'restore must not wait for the maintenance lock while holding the PHP session file lock');
+assert(index.includes("UPDATE users SET session_version = session_version + 1"), 'restore must revoke sessions from the restored database too');
+console.log('OK: strict session cookies, trusted proxy handling and server-side session revocation.');

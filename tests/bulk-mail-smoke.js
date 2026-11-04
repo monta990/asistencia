@@ -1,0 +1,16 @@
+const fs = require('fs');
+const root = __dirname + '/..';
+const app = fs.readFileSync(root + '/assets/app.js', 'utf8');
+const index = fs.readFileSync(root + '/index.php', 'utf8');
+const view = fs.readFileSync(root + '/views/pages/history.php', 'utf8');
+const cfg = fs.readFileSync(root + '/config/app.php', 'utf8');
+const cli = fs.readFileSync(root + '/bin/zknet', 'utf8');
+const requiredApp = ['bulk_send_one', 'data-bulk-progress-bar', 'data-bulk-results', 'Enviado', 'Fallido', "credentials: 'same-origin'", 'URLSearchParams'];
+for (const needle of requiredApp) if (!app.includes(needle)) throw new Error('Missing bulk-mail UI behavior: ' + needle);
+const requiredIndex = ["=== 'bulk_send_one'", 'Csrf::verify', '$deliverDepartmentFile((int) ($fileId ?: 0), $expectedRunId)', 'application/json'];
+for (const needle of requiredIndex) if (!index.includes(needle)) throw new Error('Missing protected bulk endpoint: ' + needle);
+for (const needle of ['data-bulk-send', 'Enviar correo a todos', 'btn-bulk-send']) if (!view.includes(needle)) throw new Error('Missing history bulk control: ' + needle);
+if (!app.includes('El ZIP general no se adjuntará')) throw new Error('Modal must clarify that the general ZIP is not attached');
+if (!cfg.includes("'export_retention_days' => 0")) throw new Error('Exports must be permanent');
+if (!cli.includes('Reportes XLSX/ZIP: permanentes')) throw new Error('Cleanup must not purge exports');
+console.log('Bulk-mail and permanent-retention smoke: OK');

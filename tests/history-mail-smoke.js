@@ -1,0 +1,27 @@
+'use strict';
+const fs = require('node:fs');
+const path = require('node:path');
+const root = path.resolve(__dirname, '..');
+const read = (name) => fs.readFileSync(path.join(root, name), 'utf8');
+const assert = (condition, message) => { if (!condition) throw new Error(message); };
+const view = read('views/pages/history.php');
+const index = read('index.php');
+const repository = read('src/Repositories/ReportRepository.php');
+const version = read('src/Core/Version.php');
+
+assert(view.includes('configured_recipients'), 'history uses current configured recipients');
+assert(view.includes('mail_attempt_count'), 'history reads previous delivery attempts');
+assert(view.includes('name="action" value="resend_department_file"'), 'history has the POST resend action');
+assert(view.includes("$attempts > 0 ? 'Reenviar correo' : 'Enviar correo'"), 'history differentiates first send from resend');
+assert(view.includes('Sin correo'), 'history shows a no-email state');
+assert(view.includes('if ($rcpts === [])') && view.includes('else: ?>\n            <form'), 'no-email departments do not render a send button');
+assert(index.includes("case 'resend_department_file':"), 'backend handles send and resend from history');
+assert(index.includes("Csrf::verify(isset($_POST['_token'])"), 'POST route is protected by CSRF');
+assert(index.includes('$departments->deliveryRecipients($departmentId)'), 'backend resolves current department recipients plus responsible');
+assert(index.includes('$mailer->sendDepartment(') && index.includes('$departments->responsibleEmail($departmentId)'), 'shared backend sends only the department Excel and passes the responsible email');
+assert(index.includes('$reports->updateDelivery($fileId'), 'attempt result is logged in delivery history');
+assert(index.includes("$returnUrl .= '&run=' . rawurlencode((string) $_GET['run'])"), 'errors return to the selected execution detail');
+assert(repository.includes('findDepartmentFileForDelivery'), 'repository loads historical file context');
+assert(repository.includes('AS mail_attempt_count'), 'repository counts mail event attempts');
+assert(version.includes("VERSION = '1.2.19'"), 'version is bumped');
+console.log('OK: envío inicial, reenvío, destinatarios actuales, auditoría y estado Sin correo.');

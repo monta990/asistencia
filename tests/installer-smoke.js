@@ -1,0 +1,36 @@
+'use strict';
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const root = path.resolve(__dirname, '..');
+const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
+
+const appConfig = read('config/app.php');
+const bootstrap = read('bootstrap.php');
+const installer = read('install.php');
+const state = read('src/Core/InstallationState.php');
+const version = read('src/Core/Version.php');
+const migration = read('database/migrations/003_user_accounts_and_roles.php');
+
+assert(!appConfig.includes('admin_password_hash'), 'default config must not contain an administrative password hash');
+assert(!appConfig.includes("'admin_username'"), 'default config must not seed an administrative username/password pair');
+assert(appConfig.includes("getenv('ZKTIME_DATA_DIR')"), 'data path must support a server environment override');
+assert(appConfig.includes("config' . DIRECTORY_SEPARATOR . 'local.php") || appConfig.includes("__DIR__ . DIRECTORY_SEPARATOR . 'local.php'"), 'local config should hold only the selected data path');
+assert(bootstrap.includes("header('Location: install.php'"), 'uninstalled and legacy instances must be routed to the installer');
+assert(bootstrap.indexOf('InstallationState::inspect') < bootstrap.indexOf('Database::connection()'), 'installation state must be checked before database initialization');
+assert(installer.includes("name=\"admin_password\"") && installer.includes("name=\"admin_password_confirmation\""), 'installer must request and confirm the first admin password');
+assert(installer.includes("password_hash($submittedPassword, PASSWORD_DEFAULT)"), 'admin password must be hashed with password_hash');
+assert(installer.includes("$config['admin_password_hash'] = $adminHash"), 'legacy migration receives the admin hash only in request memory');
+const persistBlock = installer.slice(installer.indexOf('function persistDataRoot'), installer.indexOf('function ensureDirectory'));
+assert(persistBlock.includes("'data_root' => " ) && !persistBlock.includes('password'), 'local config must persist only the data root, never credentials');
+assert(installer.includes('ZKTIME_DATA_DIR'), 'installer must explain environment-managed data locations');
+assert(installer.includes('pathIsWithin($canonical, $appReal)'), 'data path must be outside the application directory');
+assert(installer.includes('pathIsWithin($canonical, $documentReal)'), 'data path must be outside the public document root');
+assert(installer.includes("'installation.json'"), 'installer should record completion outside the web root');
+assert(installer.includes('flock($installationLock, LOCK_EX)'), 'installer must serialize concurrent initializations');
+assert(installer.includes('$prospectiveState = InstallationState::inspect($prospectiveDatabase)'), 'installer must reject a selected path containing an existing database before saving its path');
+assert(state.includes('PDO::ATTR_TIMEOUT'), 'installation inspection should use a bounded SQLite connection timeout');
+assert(state.includes('needs_admin_setup\' => $version < Version::USER_AUTH_SCHEMA'), 'unknown schema-0 databases must be routed to the installer safety check');
+assert(version.includes("VERSION = '1.2.19'"), 'application version must be bumped');
+assert(migration.includes("Config::get('admin_password_hash'"), 'historical migration must remain unchanged and receive a runtime hash');
+console.log('OK: primera instalación, ruta de datos y contraseña administrativa');

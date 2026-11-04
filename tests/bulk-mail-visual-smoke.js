@@ -1,0 +1,12 @@
+const fs = require('fs');
+const path = require('path');
+const root = path.join(__dirname, '..');
+const view = fs.readFileSync(path.join(root, 'views/pages/history.php'), 'utf8');
+const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8');
+const version = fs.readFileSync(path.join(root, 'src/Core/Version.php'), 'utf8');
+if (!view.includes('Enviar correo a todos')) throw new Error('Bulk action label must be explicit for non-technical users');
+if (!/class="btn btn-bulk-send"[^>]*data-bulk-send|data-bulk-send[^>]*class="btn btn-bulk-send"/.test(view)) throw new Error('Bulk email trigger must use the green action style');
+if (!view.includes('bulk-modal-title-row') || !view.includes('bulk-modal-x')) throw new Error('Modal close button must share the title row');
+if (!css.includes('.bulk-modal-title-row{') || !css.includes('place-items:center') || !css.includes('.btn-bulk-send{') || !css.includes('background:var(--red)')) throw new Error('Green send action or centered red close button styling is missing');
+if (!version.includes("VERSION = '1.2.19'")) throw new Error('Version is not bumped');
+console.log('Bulk email label, danger action and modal close alignment smoke: OK');

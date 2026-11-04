@@ -1,0 +1,23 @@
+'use strict';
+const fs = require('node:fs');
+const path = require('node:path');
+const assert = require('node:assert/strict');
+const root = path.resolve(__dirname, '..');
+const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8');
+const dashboard = fs.readFileSync(path.join(root, 'views/pages/dashboard.php'), 'utf8');
+const version = fs.readFileSync(path.join(root, 'src/Core/Version.php'), 'utf8');
+
+assert(version.includes("VERSION = '1.2.19'"), 'dashboard guidance release must bump the version');
+assert(dashboard.includes('dashboard-guide-panel'), 'dashboard must render the new guidance panel');
+assert(dashboard.includes('Archivo de Excel requerido (.xlsx)'), 'dashboard must clearly state the accepted XLSX format');
+assert(dashboard.includes('calendario ISO'), 'dashboard must explain ISO week numbering');
+assert(dashboard.includes('empieza el lunes') && dashboard.includes('termina el domingo'), 'dashboard must explain the Monday-to-Sunday week');
+assert(dashboard.includes('26 de octubre al 1 de noviembre de 2026') && dashboard.includes('semana 44 de 2026'), 'dashboard must include a familiar ISO week example');
+assert(!dashboard.includes('NUEVA EJECUCIÓN'), 'dashboard must not repeat the upload section eyebrow');
+assert(!dashboard.includes('Cargar reporte</a>'), 'dashboard must not duplicate the main upload action');
+assert(!dashboard.includes('Semana ISO automática'), 'dashboard must replace the unexplained ISO label');
+assert(css.includes('.dashboard-guide-panel{') && css.includes('.dashboard-guide-item{'), 'dashboard guidance styles must be present');
+assert(!css.includes('.panel-primary-action{'), 'obsolete decorative upload card styles must be removed');
+assert(dashboard.includes('Entregas confirmadas por servidor de correo'), 'dashboard must use non-technical delivery wording');
+assert(!dashboard.includes('Entregas confirmadas por SMTP'), 'dashboard must not expose SMTP jargon');
+console.log('OK: dashboard guidance explains XLSX and ISO weeks without duplicate upload actions.');

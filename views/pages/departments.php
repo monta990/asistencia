@@ -1,0 +1,29 @@
+<?php
+use ZkTimeNet\Core\Csrf;
+use ZkTimeNet\Core\Html;
+$editing = is_array($editingDepartment) ? $editingDepartment : null;
+$recipientLines = $editing ? implode("\n", array_map(static fn (array $r): string => (string) $r['email'], $editing['recipients'])) : '';
+?>
+<div class="page-heading-row"><div><div class="eyebrow">REGLAS DE DISTRIBUCIÓN</div><h2>Departamentos y destinatarios</h2><p class="muted">Relaciona los nombres del reporte ZKTimeNet con los departamentos internos y define a quién debe llegar cada Excel.</p></div><?php if ($editing): ?><a class="btn btn-outline" href="index.php?page=departments"><?= Html::icon('cancel') ?> Cancelar edición</a><?php endif; ?></div>
+<div class="content-grid department-grid">
+  <section class="panel department-form-panel">
+    <div class="panel-header"><div><div class="eyebrow">CATÁLOGO</div><h3><?= $editing ? 'Editar departamento' : 'Agregar departamento' ?></h3></div><span class="status-pill status-info"><?= $editing ? 'Edición' : 'Nuevo' ?></span></div>
+    <?php if ($editing && (int) ($editing['needs_configuration'] ?? 0) === 1): ?><div class="alert alert-warning">Este departamento se detectó automáticamente en un reporte. Revisa su responsable y correos; al guardar quedará registrado como revisado.</div><?php endif; ?>
+    <form method="post" class="stack-form"><input type="hidden" name="_token" value="<?= Html::escape(Csrf::token()) ?>"><input type="hidden" name="action" value="save_department"><input type="hidden" name="id" value="<?= Html::escape($editing['id'] ?? '') ?>">
+      <label>Etiqueta de departamento en ZKTimeNet<input name="report_label" type="text" required maxlength="160" value="<?= Html::escape($editing['report_label'] ?? '') ?>" placeholder="Ej. CAPITAL HUMANO"><small>Debe corresponder al nombre encontrado en la columna D de la fila Departamento.</small></label>
+      <label>Nombre para mostrar y nombrar el Excel<input name="display_name" type="text" required maxlength="120" value="<?= Html::escape($editing['display_name'] ?? '') ?>" placeholder="Ej. Capital Humano"></label>
+      <label>Responsable del departamento<input name="responsible_email" type="email" maxlength="254" value="<?= Html::escape($editing['responsible_email'] ?? '') ?>" placeholder="responsable@empresa.com"><small>El responsable recibe siempre el Excel de su departamento, aunque no aparezca en Correos destinatarios. Su dirección se excluye únicamente de «Responder a».</small></label>
+      <label>Correos destinatarios<textarea name="recipients" rows="6" placeholder="nominas@empresa.com&#10;gerencia.rh@empresa.com"><?= Html::escape($recipientLines) ?></textarea><small>Escribe un correo por línea. También se aceptan comas y punto y coma. Máximo 50 direcciones. El responsable también recibirá su Excel, con un solo mensaje por dirección.</small></label>
+      <label>Orden de presentación<input type="number" name="position" min="0" max="9999" value="<?= Html::escape($editing['position'] ?? (count($departmentRows) + 1)) ?>"></label>
+      <label class="check-inline"><input type="checkbox" name="enabled" value="1" <?= !$editing || (int) $editing['enabled'] === 1 ? 'checked' : '' ?>> Habilitado para envío de correo</label><small class="muted">Si lo deshabilitas, el sistema seguirá generando su Excel y lo incluirá en el ZIP; solamente omitirá el envío de correo.</small>
+      <button type="submit" class="btn btn-primary btn-wide"><?= Html::icon($editing ? 'save' : 'add') ?> <?= $editing ? 'Guardar cambios' : 'Agregar departamento' ?></button>
+    </form>
+  </section>
+  <section class="panel department-list-panel">
+    <div class="panel-header"><div><div class="eyebrow">DEPARTAMENTOS CONFIGURADOS</div><h3>Catálogo de distribución</h3></div><span class="count-bubble"><?= count($departmentRows) ?></span></div>
+    <div class="table-wrap"><table><thead><tr><th>DEPARTAMENTO</th><th>RESPONSABLE</th><th>CORREOS</th><th>ESTADO</th><th></th></tr></thead><tbody>
+    <?php foreach ($departmentRows as $department): ?><tr><td><strong><?= Html::escape($department['display_name']) ?></strong><small class="table-sub">ZKTimeNet: <?= Html::escape($department['report_label']) ?></small></td><td><?= trim((string) ($department['responsible_email'] ?? '')) !== '' ? Html::escape($department['responsible_email']) : '<span class="text-muted">Sin responsable</span>' ?></td><td><?php if ((int) $department['recipient_count'] > 0): ?><span class="delivery-count"><?= (int) $department['recipient_count'] ?> destinatario(s)</span><?php else: ?><span class="status-text-danger">Sin correos</span><?php endif; ?></td><td><?php if ((int) ($department['needs_configuration'] ?? 0) === 1): ?><span class="status-pill status-warning">Pendiente de configuración</span><?php elseif ((int) $department['enabled'] === 1): ?><span class="status-pill status-success">Habilitado</span><?php else: ?><span class="status-pill status-muted">Deshabilitado · Excel se conserva</span><?php endif; ?></td><td class="actions-cell"><div class="table-actions"><a class="btn btn-outline btn-small" href="index.php?page=departments&edit=<?= (int) $department['id'] ?>"><?= Html::icon('edit') ?> Editar</a><form method="post" data-confirm="¿Eliminar este departamento y sus destinatarios? Los reportes históricos se mantienen."><input type="hidden" name="_token" value="<?= Html::escape(Csrf::token()) ?>"><input type="hidden" name="action" value="delete_department"><input type="hidden" name="id" value="<?= (int) $department['id'] ?>"><button class="btn btn-danger-quiet btn-small" type="submit"><?= Html::icon('trash') ?> Eliminar</button></form></div></td></tr><?php endforeach; ?>
+    </tbody></table></div>
+    <div class="table-footnote">Las etiquetas se comparan ignorando mayúsculas y espacios repetidos. Los departamentos deshabilitados siguen generando su Excel y solo se excluyen del correo.</div>
+  </section>
+</div>

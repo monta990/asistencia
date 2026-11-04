@@ -1,0 +1,24 @@
+'use strict';
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const root = path.resolve(__dirname, '..');
+const page = fs.readFileSync(path.join(root, 'views/pages/updates.php'), 'utf8');
+const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8');
+const version = fs.readFileSync(path.join(root, 'src/Core/Version.php'), 'utf8');
+const layout = fs.readFileSync(path.join(root, 'views/layout.php'), 'utf8');
+
+assert.match(version, /VERSION\s*=\s*'1\.2\.19'/, 'application version must be 1.2.19');
+assert.match(page, /CONTROL DE VERSIÓN[\s\S]*Estado de la base de datos/, 'database status section must remain');
+assert.match(page, /ENTORNO DE EJECUCIÓN[\s\S]*Plataforma[\s\S]*Versión de PHP[\s\S]*Extensiones requeridas/, 'runtime diagnostics must be grouped inside the database status panel');
+assert.doesNotMatch(page, /class="panel update-technical"/, 'separate technical panel must be removed');
+assert.equal((page.match(/Version::VERSION/g) || []).length, 1, 'application version must be shown only once');
+assert.match(page, /Datos persistentes[\s\S]*Carpeta raíz de datos[\s\S]*Base de datos SQLite[\s\S]*Archivos de configuración del sitio/, 'paths must be grouped by data and application configuration');
+assert.match(page, /name="action" value="download_config_backup"/, 'backup action must remain available');
+assert.match(page, /name="action" value="restore_config_backup"/, 'restore action must remain available');
+assert.match(page, /name="action" value="run_migrations"/, 'migration action must remain available');
+assert.match(page, /Protege el archivo ZIP[\s\S]*Restaurar una copia de seguridad/, 'confidentiality warning must precede restore');
+assert.match(layout, /assets\/app\.css\?v=1\.2\.19/, 'frontend cache must be bumped');
+assert.match(css, /\.updates-grid\{grid-template-columns:minmax\(340px,\.9fr\) minmax\(0,1\.35fr\)/, 'desktop columns must prioritize the backup/path panel');
+assert.match(css, /@media\(max-width:720px\)[\s\S]*\.path-list\{grid-template-columns:minmax\(0,1fr\)\}/, 'paths must collapse to one column on mobile');
+console.log('updates-page-layout-smoke: OK');
