@@ -47,7 +47,7 @@ try {
     exit;
 }
 
-if ($action === 'brand_logo') {
+if ((string) ($_GET['action'] ?? '') === 'brand_logo') {
     $brandingSettings = (new SettingsRepository($pdo))->get('branding', []);
     $logoMetadata = is_array($brandingSettings) ? ($brandingSettings['logo_image'] ?? null) : null;
     $logoFile = BrandLogo::resolve($logoMetadata, (string) Config::get('storage_private'));
@@ -349,8 +349,9 @@ $settings = new SettingsRepository($pdo);
 $brandingDefaults = (array) Config::get('branding_defaults', []);
 $brandingSaved = $settings->get('branding', []);
 $branding = array_replace($brandingDefaults, is_array($brandingSaved) ? $brandingSaved : []);
+$logoFilename = is_array($branding['logo_image'] ?? null) ? (string) ($branding['logo_image']['filename'] ?? '') : '';
 $brandLogoAvailable = BrandLogo::resolve($branding['logo_image'] ?? null, (string) Config::get('storage_private')) !== null;
-$brandLogoUrl = 'index.php?action=brand_logo&v=' . substr(hash('sha256', (string) (($branding['logo_image']['filename'] ?? ''))), 0, 12);
+$brandLogoUrl = 'index.php?action=brand_logo&v=' . substr(hash('sha256', $logoFilename), 0, 12);
 $reports = new ReportRepository($pdo);
 $users = new UserRepository($pdo);
 $mailer = new MailerService($settings);
