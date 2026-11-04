@@ -1,4 +1,15 @@
-# HANDOFF — ZKTimeNet Personal Framework 1.2.19
+# HANDOFF — ZKTimeNet Personal Framework 1.2.20
+
+## Release 1.2.20 — Carga de logotipo en identidad visual
+
+- **Sistema → Identidad visual** permite cargar, reemplazar o quitar el logotipo de empresa; la vista previa se actualiza al elegir una imagen. Las siglas existentes siguen como alternativa cuando no hay imagen configurada.
+- Formatos admitidos: PNG, JPG/JPEG, GIF y WebP; límite de 2 MiB, 2400 × 1200 píxeles y 2.5 megapíxeles. SVG se rechaza para no introducir contenido activo.
+- `src/Services/BrandLogo.php` valida el contenido real con `getimagesize`, MIME permitido, dimensiones y ubicación del archivo. Usa un nombre aleatorio y conserva el archivo fuera del DocumentRoot en el directorio privado existente.
+- `index.php?action=brand_logo` sirve únicamente el logo activo con MIME validado y `nosniff`; la ruta pública es necesaria para mostrar la marca antes de iniciar sesión y no permite al cliente indicar una ruta de archivo.
+- La carga, reemplazo y eliminación se procesan en la acción administrativa protegida por sesión y CSRF. El archivo anterior se elimina después de confirmar el cambio en SQLite; no se agrega una tabla ni se requiere migración (esquema continúa en 5).
+- El logo se presenta en el menú lateral, la pantalla de acceso y la vista previa de Identidad visual. Las preferencias de texto y las siglas conservan su funcionamiento anterior.
+- `ConfigurationBackup` ya copia el contenido privado completo; el logo se incluye en el ZIP junto con SQLite, `app.key` y los demás recursos privados. La restauración también recupera los archivos.
+- Se agrega `tests/brand-logo-smoke.php` y se amplía `tests/branding-smoke.js`; las referencias frontend pasan a `1.2.20`.
 
 ## Release 1.2.19 — Ancho completo global
 
@@ -22,7 +33,7 @@
 
 ## Estado de entrega
 
-- **Versión de aplicación:** 1.2.19 (`src/Core/Version.php`).
+- **Versión de aplicación:** 1.2.20 (`src/Core/Version.php`).
 - **Esquema SQLite objetivo:** 5.
 - **Plataforma mínima:** PHP 8.5; extensiones `pdo_sqlite`, `zip`, `dom`, `openssl`.
 - **Despliegue de referencia:** Windows Server + IIS + PHP NTS/FastCGI.
@@ -113,7 +124,7 @@ date.timezone = America/Mexico_City
 - Si hay proxy TLS, declarar IP de proxy en `ZKTIME_TRUSTED_PROXIES`; no aceptar cualquier `X-Forwarded-Proto`.
 - Mantener HTTPS y restricción LAN/VPN. ZIP de backup es sensible; guardar destino cifrado.
 
-## Validación 1.2.19
+## Validación 1.2.19 (release anterior)
 
 - `node tests/all-pages-full-width-smoke.js`: aprobado; las nueve páginas autenticadas comparten el contenedor sin límite de ancho y conservan gutters responsivos.
 - Las 27 suites JavaScript `tests/*smoke.js`: aprobadas con Node.js 22.16.0.
