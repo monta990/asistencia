@@ -54,6 +54,11 @@ try {
         locked_until TEXT NULL,
         session_version INTEGER NOT NULL DEFAULT 1
     )');
+    $pdo->exec("INSERT INTO settings (setting_key, setting_value) VALUES ('security', '{\"max_login_attempts\":5,\"lockout_minutes\":10}')");
+    $policy = $pdo->query("SELECT setting_value FROM settings WHERE setting_key = 'security'")->fetchColumn();
+    if (!is_string($policy) || json_decode($policy, true) !== ['max_login_attempts' => 5, 'lockout_minutes' => 10]) {
+        throw new RuntimeException('La política predeterminada del test debe ser de 5 intentos y 10 minutos.');
+    }
     $insert = $pdo->prepare('INSERT INTO users (username, password_hash, created_at, name, role, is_active, failed_login_attempts, locked_until, session_version) VALUES (:username, :hash, :created, :name, :role, 1, 0, NULL, 1)');
     $insert->execute(['username' => 'admin.one', 'hash' => password_hash('Correct-Pass-1!', PASSWORD_DEFAULT), 'created' => date(DATE_ATOM), 'name' => 'Administrador Uno', 'role' => 'admin']);
     $adminOne = (int) $pdo->lastInsertId();
