@@ -30,6 +30,49 @@
       } else if (files && files.length > 0 && fileName) fileName.textContent = 'Selecciona un solo archivo con extensión .xlsx';
     });
   }
+  // Vista previa del logotipo antes de guardar la identidad visual.
+  const brandLogoInput = document.querySelector('[data-brand-logo-input]');
+  const brandLogoPreview = document.querySelector('[data-brand-logo-preview]');
+  const brandLogoFallback = document.querySelector('[data-brand-logo-fallback]');
+  const brandLogoRemove = document.querySelector('[data-brand-logo-remove]');
+  const savedBrandLogoSrc = brandLogoPreview ? (brandLogoPreview.getAttribute('src') || '') : '';
+  let brandLogoObjectUrl = null;
+  const updateBrandLogoPreview = () => {
+    if (brandLogoObjectUrl) {
+      URL.revokeObjectURL(brandLogoObjectUrl);
+      brandLogoObjectUrl = null;
+    }
+    const selectedLogo = brandLogoInput && brandLogoInput.files ? brandLogoInput.files[0] : null;
+    if (selectedLogo && brandLogoPreview && typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function') {
+      brandLogoObjectUrl = URL.createObjectURL(selectedLogo);
+      brandLogoPreview.src = brandLogoObjectUrl;
+      brandLogoPreview.hidden = false;
+      if (brandLogoFallback) brandLogoFallback.hidden = true;
+      if (brandLogoRemove) brandLogoRemove.checked = false;
+      return;
+    }
+    if (brandLogoRemove && brandLogoRemove.checked) {
+      if (brandLogoPreview) brandLogoPreview.hidden = true;
+      if (brandLogoFallback) brandLogoFallback.hidden = false;
+      return;
+    }
+    if (brandLogoPreview) {
+      if (savedBrandLogoSrc) {
+        brandLogoPreview.src = savedBrandLogoSrc;
+        brandLogoPreview.hidden = false;
+        if (brandLogoFallback) brandLogoFallback.hidden = true;
+      } else {
+        brandLogoPreview.hidden = true;
+        if (brandLogoFallback) brandLogoFallback.hidden = false;
+      }
+    }
+  };
+  if (brandLogoInput) brandLogoInput.addEventListener('change', updateBrandLogoPreview);
+  if (brandLogoRemove) brandLogoRemove.addEventListener('change', () => {
+    if (brandLogoRemove.checked && brandLogoInput) brandLogoInput.value = '';
+    updateBrandLogoPreview();
+  });
+
   document.querySelectorAll('[data-submit-loading]').forEach((button) => {
     const form = button.closest('form');
     if (form) form.addEventListener('submit', () => { button.disabled = true; setButtonText(button, 'Procesando reporte…'); });
