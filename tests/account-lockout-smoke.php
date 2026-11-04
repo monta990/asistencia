@@ -27,8 +27,11 @@ $assert = static function (bool $condition, string $message) use (&$assertions):
 
 try {
     session_save_path($temporary);
-    session_id('lockout_' . bin2hex(random_bytes(6)));
-    session_start();
+    session_id('lockout-' . bin2hex(random_bytes(6)));
+    if (!session_start()) {
+        throw new RuntimeException('No se pudo iniciar la sesión temporal del test.');
+    }
+
     $pdo = new PDO('sqlite:' . $temporary . DIRECTORY_SEPARATOR . 'accounts.sqlite', null, null, [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
@@ -60,9 +63,17 @@ try {
     }
     $assert((int) $pdo->query('SELECT failed_login_attempts FROM users WHERE id = ' . $adminOne)->fetchColumn() === 4, 'los primeros cuatro fallos se conservan');
     $assert(!Auth::attempt($pdo, 'admin.one', 'incorrecta'), 'el quinto fallo tampoco autentica');
+
     $locked = $pdo->query('SELECT failed_login_attempts, locked_until, session_version FROM users WHERE id = ' . $adminOne)->fetch();
-    $assert((int) $locked['failed_login_attempts'] === 5 && strtotime((string) $locked['locked_until']) > time(), 'el quinto fallo bloquea diez minutos y conserva el contador visible');
-    $assert((int) $locked['session_version'] === 2, 'el bloqueo invalida sesiones existentes');
+    $attemptCount = (int) ($locked['failed_login_attempts'] ?? -1);
+    $lockedTimestamp = strtotime((string) ($locked['locked_until'] ?? ''));
+    $sessionVersion = (int) ($locked['session_version'] ?? -1);
+    $assert(
+        $attemptCount === 5 && $lockedTimestamp !== false && $lockedTimestamp > time() && $sessionVersion === 2,
+        'el quinto fallo debe guardar 5 intentos, una expiración futura y revocar la sesión; obtenido: attempts='
+        . $attemptCount . ', locked_until=' . (string) ($locked['locked_until'] ?? 'NULL')
+        . ', session_version=' . $sessionVersion
+    );
     $assert(!Auth::attempt($pdo, 'admin.one', 'Correct-Pass-1!'), 'la contraseña correcta no evita un bloqueo activo');
 
     $pdo->prepare('UPDATE users SET locked_until = :expired WHERE id = :id')->execute(['expired' => date(DATE_ATOM, time() - 5), 'id' => $adminOne]);
