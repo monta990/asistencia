@@ -40,6 +40,8 @@ try {
     ]);
     file_put_contents($temporary . DIRECTORY_SEPARATOR . 'private' . DIRECTORY_SEPARATOR . 'app.key', random_bytes(32));
     file_put_contents($temporary . DIRECTORY_SEPARATOR . 'private' . DIRECTORY_SEPARATOR . 'signatures' . DIRECTORY_SEPARATOR . 'signature.svg', '<svg></svg>');
+    $brandLogo = 'brand-logo-0123456789abcdef01234567.png';
+    file_put_contents($temporary . DIRECTORY_SEPARATOR . 'private' . DIRECTORY_SEPARATOR . $brandLogo, 'contenido de prueba del logotipo');
     file_put_contents($temporary . DIRECTORY_SEPARATOR . 'private' . DIRECTORY_SEPARATOR . 'logs' . DIRECTORY_SEPARATOR . 'private.log', 'no debe incluirse');
     file_put_contents($temporary . DIRECTORY_SEPARATOR . 'exports' . DIRECTORY_SEPARATOR . 'report.zip', 'reporte permanente');
 
@@ -58,6 +60,7 @@ try {
     $assert(in_array('data/private/zktime.sqlite', $names, true), 'el respaldo incluye SQLite');
     $assert(in_array('data/private/app.key', $names, true), 'el respaldo incluye la llave SMTP');
     $assert(in_array('data/private/signatures/signature.svg', $names, true), 'el respaldo incluye la firma privada');
+    $assert(in_array('data/private/' . $brandLogo, $names, true), 'el respaldo incluye el logotipo privado de identidad visual');
     $assert(in_array('data/exports/report.zip', $names, true), 'el respaldo incluye reportes permanentes');
     $assert(in_array('metadata/config-app.php', $names, true), 'el respaldo incluye config/app.php como referencia');
     $assert(!in_array('data/private/logs/private.log', $names, true), 'el respaldo excluye logs');
@@ -69,6 +72,7 @@ try {
     file_put_contents($temporary . DIRECTORY_SEPARATOR . 'exports' . DIRECTORY_SEPARATOR . 'new-file.txt', 'debe desaparecer');
     ConfigurationBackup::applyRestore($stage);
     $assert(file_get_contents($temporary . DIRECTORY_SEPARATOR . 'private' . DIRECTORY_SEPARATOR . 'app.key') !== str_repeat('x', 32), 'la restauración repone la llave del respaldo');
+    $assert(file_get_contents($temporary . DIRECTORY_SEPARATOR . 'private' . DIRECTORY_SEPARATOR . $brandLogo) === 'contenido de prueba del logotipo', 'la restauración recupera el logotipo de identidad visual');
     $assert(!is_file($temporary . DIRECTORY_SEPARATOR . 'exports' . DIRECTORY_SEPARATOR . 'new-file.txt'), 'la restauración reemplaza los reportes actuales');
     $assert(is_file($temporary . DIRECTORY_SEPARATOR . 'private' . DIRECTORY_SEPARATOR . 'logs' . DIRECTORY_SEPARATOR . 'private.log'), 'los logs locales se conservan fuera del payload restaurado');
     echo "OK: {$assertions} comprobaciones funcionales de ZIP, validación, respaldo y restauración.\n";
