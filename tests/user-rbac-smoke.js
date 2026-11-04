@@ -6,7 +6,7 @@ const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
 const assert = require('node:assert/strict');
 
 const version = read('src/Core/Version.php');
-assert(version.includes("VERSION = '1.2.19'") && version.includes('SCHEMA_TARGET = 5'), 'application/schema target must match RBAC release');
+assert(version.includes("VERSION = '1.2.20'") && version.includes('SCHEMA_TARGET = 5'), 'application/schema target must match RBAC release');
 
 const migration = read('database/migrations/003_user_accounts_and_roles.php');
 assert(migration.includes("ADD COLUMN name TEXT NOT NULL") && migration.includes('ADD COLUMN role TEXT NOT NULL') && migration.includes('ADD COLUMN is_active'), 'migration must add account fields without replacing existing tables');
