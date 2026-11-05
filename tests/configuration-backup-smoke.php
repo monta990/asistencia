@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 use ZkTimeNet\Core\Config;
+use ZkTimeNet\Core\MigrationManager;
 use ZkTimeNet\Core\Version;
 use ZkTimeNet\Services\ConfigurationBackup;
 
@@ -36,6 +37,7 @@ try {
         'database' => $database,
         'storage_private' => $temporary . DIRECTORY_SEPARATOR . 'private',
         'storage_exports' => $temporary . DIRECTORY_SEPARATOR . 'exports',
+        'storage_uploads' => $temporary . DIRECTORY_SEPARATOR . 'uploads',
         'storage_backups' => $temporary . DIRECTORY_SEPARATOR . 'backups',
     ]);
     file_put_contents($temporary . DIRECTORY_SEPARATOR . 'private' . DIRECTORY_SEPARATOR . 'app.key', random_bytes(32));
@@ -44,10 +46,28 @@ try {
     file_put_contents($temporary . DIRECTORY_SEPARATOR . 'exports' . DIRECTORY_SEPARATOR . 'report.zip', 'reporte permanente');
 
     $pdo = new PDO('sqlite:' . $database, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
-    $pdo->exec('CREATE TABLE schema_version (id INTEGER PRIMARY KEY CHECK (id = 1), version INTEGER NOT NULL)');
-    $pdo->exec('INSERT INTO schema_version (id, version) VALUES (1, ' . Version::SCHEMA_TARGET . ')');
-    $pdo->exec('CREATE TABLE users (id INTEGER PRIMARY KEY, role TEXT NOT NULL, is_active INTEGER NOT NULL)');
-    $pdo->exec("INSERT INTO users (id, role, is_active) VALUES (1, 'admin', 1)");
+    Config::set('admin_password_hash', password_hash('BackupFixturePassword123', PASSWORD_DEFAULT));
+    $migrator = new MigrationManager($pdo, $root . '/database/migrations');
+    $migrationResult = $migrator->migrate();
+    $assert($migrator->currentVersion() === Version::SCHEMA_TARGET && $migrationResult['applied'] === [1, 2, 3, 4, 5, 6], 'el fixture usa el esquema completo 1–6');
+
+    $runId = bin2hex(random_bytes(16));
+    $legacySource = $temporary . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . $runId . '.xlsx';
+    file_put_contents($legacySource, 'XLSX histórico de prueba');
+    mkdir($temporary . DIRECTORY_SEPARATOR . 'exports' . DIRECTORY_SEPARATOR . $runId, 0700, true);
+    $runInsert = $pdo->prepare('INSERT INTO report_runs (id, original_filename, archive_name, archive_path, week, iso_year, start_date, end_date, status, created_by, created_at) VALUES (:id, :original, :archive_name, :archive_path, :week, :year, :start, :end, :status, NULL, :created)');
+    $runInsert->execute([
+        ':id' => $runId,
+        ':original' => 'historical.xlsx',
+        ':archive_name' => 'historical.zip',
+        ':archive_path' => $runId . '/historical.zip',
+        ':week' => '44',
+        ':year' => '2026',
+        ':start' => '2026-10-26',
+        ':end' => '2026-11-01',
+        ':status' => 'completed',
+        ':created' => date('Y-m-d H:i:s'),
+    ]);
 
     $backupPath = ConfigurationBackup::createArchive($pdo, 'download');
     $assert((bool) preg_match('/ZKTimeNet-Backup-\d{8}-\d{6}-[a-f0-9]+\.zip$/', basename($backupPath)), 'el nombre del ZIP incluye fecha, hora e identificador');
@@ -59,6 +79,8 @@ try {
     $assert(in_array('data/private/app.key', $names, true), 'el respaldo incluye la llave SMTP');
     $assert(in_array('data/private/signatures/signature.svg', $names, true), 'el respaldo incluye la firma privada');
     $assert(in_array('data/exports/report.zip', $names, true), 'el respaldo incluye reportes permanentes');
+    $assert(in_array('data/exports/' . $runId . '/source.xlsx', $names, true), 'el respaldo incluye fuentes XLSX históricos ligados a ejecuciones');
+    $assert($zip->getFromName('data/exports/' . $runId . '/source.xlsx') === 'XLSX histórico de prueba', 'la fuente XLSX histórica mantiene su contenido');
     $assert(in_array('metadata/config-app.php', $names, true), 'el respaldo incluye config/app.php como referencia');
     $assert(!in_array('data/private/logs/private.log', $names, true), 'el respaldo excluye logs');
     $zip->close();

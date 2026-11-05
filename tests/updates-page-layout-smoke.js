@@ -8,7 +8,7 @@ const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8');
 const version = fs.readFileSync(path.join(root, 'src/Core/Version.php'), 'utf8');
 const layout = fs.readFileSync(path.join(root, 'views/layout.php'), 'utf8');
 
-assert.match(version, /VERSION\s*=\s*'1\.2\.19'/, 'application version must be 1.2.19');
+assert.match(version, /VERSION\s*=\s*'1\.2\.19'/, 'application version must be 1.2.31');
 assert.match(page, /CONTROL DE VERSIÓN[\s\S]*Estado de la base de datos/, 'database status section must remain');
 assert.match(page, /ENTORNO DE EJECUCIÓN[\s\S]*Plataforma[\s\S]*Versión de PHP[\s\S]*Extensiones requeridas/, 'runtime diagnostics must be grouped inside the database status panel');
 assert.doesNotMatch(page, /class="panel update-technical"/, 'separate technical panel must be removed');
