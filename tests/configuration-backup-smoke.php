@@ -38,7 +38,6 @@ try {
         'storage_private' => $temporary . DIRECTORY_SEPARATOR . 'private',
         'storage_exports' => $temporary . DIRECTORY_SEPARATOR . 'exports',
         'storage_uploads' => $temporary . DIRECTORY_SEPARATOR . 'uploads',
-        'storage_uploads' => $temporary . DIRECTORY_SEPARATOR . 'uploads',
         'storage_backups' => $temporary . DIRECTORY_SEPARATOR . 'backups',
     ]);
     file_put_contents($temporary . DIRECTORY_SEPARATOR . 'private' . DIRECTORY_SEPARATOR . 'app.key', random_bytes(32));
