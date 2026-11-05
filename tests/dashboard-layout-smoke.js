@@ -7,7 +7,7 @@ const css = fs.readFileSync(path.join(root, 'assets/app.css'), 'utf8');
 const dashboard = fs.readFileSync(path.join(root, 'views/pages/dashboard.php'), 'utf8');
 const version = fs.readFileSync(path.join(root, 'src/Core/Version.php'), 'utf8');
 
-assert(version.includes("VERSION = '1.2.19'"), 'dashboard guidance release must bump the version');
+assert(version.includes("VERSION = '1.2.31'"), 'dashboard guidance release must bump the version');
 assert(dashboard.includes('dashboard-guide-panel'), 'dashboard must render the new guidance panel');
 assert(dashboard.includes('Archivo de Excel requerido (.xlsx)'), 'dashboard must clearly state the accepted XLSX format');
 assert(dashboard.includes('calendario ISO'), 'dashboard must explain ISO week numbering');

@@ -19,6 +19,7 @@ assert(backup.includes("$path === 'metadata/config-app.php'") && backup.includes
 assert(backup.includes("$zip->getStream('manifest.json')") && backup.includes('5_242_880'), 'manifest must be read with a hard streaming size limit');
 assert(backup.includes('MAX_EXPANDED_BYTES - $fileSize'), 'backup copy must enforce expanded-size limits before copying each file');
 assert(backup.includes('copyDirectory($sourcePrivate, $targetPrivate, false)') && backup.includes('copyDirectory($sourceExports, $targetExports, false)'), 'restore must replace private data and permanent exports');
+assert(backup.includes('copyLegacyRunSources') && backup.includes("SELECT id FROM report_runs") && backup.includes("'source.xlsx'"), 'full backups must retain legacy uploads that belong to report runs');
 assert(backup.includes('The local data-root configuration is included for reference') || backup.includes('config/app.php and config/local.php are included as reference files'), 'manifest must make configuration reference-only behavior explicit');
 assert(updates.includes('Carpeta raíz de la aplicación') && updates.includes('Carpeta raíz de datos') && updates.includes('$appConfigPath') && updates.includes('$localConfigPath'), 'updates page must show real paths');
 assert(updates.includes('Descargar respaldo completo ZIP') && updates.includes('restore_config_backup'), 'updates page must offer both backup and restore');

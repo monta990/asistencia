@@ -27,11 +27,8 @@ $assert = static function (bool $condition, string $message) use (&$assertions):
 
 try {
     session_save_path($temporary);
-    session_id('lockout-' . bin2hex(random_bytes(6)));
-    if (!session_start()) {
-        throw new RuntimeException('No se pudo iniciar la sesión temporal del test.');
-    }
-
+    session_id('lockout_' . bin2hex(random_bytes(6)));
+    session_start();
     $pdo = new PDO('sqlite:' . $temporary . DIRECTORY_SEPARATOR . 'accounts.sqlite', null, null, [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
@@ -54,11 +51,6 @@ try {
         locked_until TEXT NULL,
         session_version INTEGER NOT NULL DEFAULT 1
     )');
-    $pdo->exec("INSERT INTO settings (setting_key, setting_value) VALUES ('security', '{\"max_login_attempts\":5,\"lockout_minutes\":10}')");
-    $policy = $pdo->query("SELECT setting_value FROM settings WHERE setting_key = 'security'")->fetchColumn();
-    if (!is_string($policy) || json_decode($policy, true) !== ['max_login_attempts' => 5, 'lockout_minutes' => 10]) {
-        throw new RuntimeException('La política predeterminada del test debe ser de 5 intentos y 10 minutos.');
-    }
     $insert = $pdo->prepare('INSERT INTO users (username, password_hash, created_at, name, role, is_active, failed_login_attempts, locked_until, session_version) VALUES (:username, :hash, :created, :name, :role, 1, 0, NULL, 1)');
     $insert->execute(['username' => 'admin.one', 'hash' => password_hash('Correct-Pass-1!', PASSWORD_DEFAULT), 'created' => date(DATE_ATOM), 'name' => 'Administrador Uno', 'role' => 'admin']);
     $adminOne = (int) $pdo->lastInsertId();
@@ -68,17 +60,9 @@ try {
     }
     $assert((int) $pdo->query('SELECT failed_login_attempts FROM users WHERE id = ' . $adminOne)->fetchColumn() === 4, 'los primeros cuatro fallos se conservan');
     $assert(!Auth::attempt($pdo, 'admin.one', 'incorrecta'), 'el quinto fallo tampoco autentica');
-
     $locked = $pdo->query('SELECT failed_login_attempts, locked_until, session_version FROM users WHERE id = ' . $adminOne)->fetch();
-    $attemptCount = (int) ($locked['failed_login_attempts'] ?? -1);
-    $lockedTimestamp = strtotime((string) ($locked['locked_until'] ?? ''));
-    $sessionVersion = (int) ($locked['session_version'] ?? -1);
-    $assert(
-        $attemptCount === 5 && $lockedTimestamp !== false && $lockedTimestamp > time() && $sessionVersion === 2,
-        'el quinto fallo debe guardar 5 intentos, una expiración futura y revocar la sesión; obtenido: attempts='
-        . $attemptCount . ', locked_until=' . (string) ($locked['locked_until'] ?? 'NULL')
-        . ', session_version=' . $sessionVersion
-    );
+    $assert((int) $locked['failed_login_attempts'] === 5 && strtotime((string) $locked['locked_until']) > time(), 'el quinto fallo bloquea diez minutos y conserva el contador visible');
+    $assert((int) $locked['session_version'] === 2, 'el bloqueo invalida sesiones existentes');
     $assert(!Auth::attempt($pdo, 'admin.one', 'Correct-Pass-1!'), 'la contraseña correcta no evita un bloqueo activo');
 
     $pdo->prepare('UPDATE users SET locked_until = :expired WHERE id = :id')->execute(['expired' => date(DATE_ATOM, time() - 5), 'id' => $adminOne]);

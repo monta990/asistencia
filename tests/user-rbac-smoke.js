@@ -6,7 +6,7 @@ const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
 const assert = require('node:assert/strict');
 
 const version = read('src/Core/Version.php');
-assert(version.includes("VERSION = '1.2.19'") && version.includes('SCHEMA_TARGET = 5'), 'application/schema target must match RBAC release');
+assert(version.includes("VERSION = '1.2.31'") && version.includes('SCHEMA_TARGET = 6'), 'application/schema target must match RBAC release');
 
 const migration = read('database/migrations/003_user_accounts_and_roles.php');
 assert(migration.includes("ADD COLUMN name TEXT NOT NULL") && migration.includes('ADD COLUMN role TEXT NOT NULL') && migration.includes('ADD COLUMN is_active'), 'migration must add account fields without replacing existing tables');
@@ -41,7 +41,7 @@ assert(layout.includes('href="index.php?page=account"'), 'profile chip must link
 assert(layout.includes("$user['name']") && layout.includes('$roleLabel'), 'header must show the person name and role');
 
 const usersPage = read('views/pages/users.php');
-for (const name of ['person_name', 'username', 'password', 'role', 'set_user_active']) assert(usersPage.includes(name), `user manager missing ${name}`);
+for (const name of ['person_name', 'username', 'email', 'password', 'role', 'set_user_active']) assert(usersPage.includes(name), `user manager missing ${name}`);
 assert(usersPage.includes('Deshabilitar') && usersPage.includes('Habilitar'), 'user manager must allow explicit user disable/enable actions');
 assert(usersPage.includes("(int) $row['id'] !== $currentUserId"), 'current signed-in user must not receive an enable/disable action');
 assert(usersPage.includes('table-actions'), 'user row actions must use the shared aligned action wrapper');
@@ -55,6 +55,9 @@ const repo = read('src/Repositories/ReportRepository.php');
 assert(repo.includes('renameRunOriginalFilename') && repo.includes("$newName = $baseName . '.xlsx'"), 'repository must preserve the original file extension during rename');
 
 const accountPage = read('views/pages/account.php');
-for (const field of ['current_password', 'new_password', 'confirm_password', 'change_own_password']) assert(accountPage.includes(field), `self-service account screen missing ${field}`);
+for (const field of ['current_password', 'new_password', 'confirm_password', 'change_own_password', 'save_own_email', 'name="email"']) assert(accountPage.includes(field), `self-service account screen missing ${field}`);
 assert(accountPage.includes('minlength="8"'), 'own password change must enforce a minimum of eight characters');
+assert(index.includes('saveOwnEmail') && index.includes("case 'save_own_email'"), 'each user must be able to manage their own notification email');
+assert(read('database/migrations/001_initial.php').includes('email TEXT NOT NULL'), 'the initial schema already contains the user email column');
+assert(!read('database/migrations/006_bulk_mail_batches.php').includes('ADD COLUMN email'), 'the batch migration must not duplicate the existing user email column');
 console.log('OK: RBAC, user administration, own password change, creator attribution and safe source filename edit.');
