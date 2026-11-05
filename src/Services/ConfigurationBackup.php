@@ -73,6 +73,13 @@ final class ConfigurationBackup
             $exportsTarget = $workDirectory . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . 'exports';
             self::ensureDirectory($exportsTarget);
             self::copyDirectory($exportsSource, $exportsTarget, true, $totalPayloadBytes);
+            $legacySourcesAdded = self::copyLegacyRunSources(
+                $pdo,
+                (string) Config::get('storage_uploads'),
+                $exportsSource,
+                $exportsTarget,
+                $totalPayloadBytes
+            );
 
             $payload = [];
             $payloadRoot = $workDirectory . DIRECTORY_SEPARATOR . 'data';
@@ -135,8 +142,9 @@ final class ConfigurationBackup
                 'config_source' => Config::get('data_root_from_environment') ? 'environment:ZKTIME_DATA_DIR' : 'config/local.php-or-platform-default',
                 'payload' => $payload,
                 'notes' => [
-                    'Includes SQLite, app.key, installation metadata, private signature assets, and permanent exports.',
-                    'Excludes sessions, temporary uploads, log files, previous backups, and runtime lock files.',
+                    'Includes SQLite, app.key, installation metadata, private branding and signature assets, permanent exports, and ' . $legacySourcesAdded . ' recovered historical XLSX source(s).',
+                    'Includes a legacy XLSX source under its run export directory when report_runs references uploads/<run-id>.xlsx; unreferenced temporary uploads are excluded.',
+                    'Excludes sessions, unreferenced temporary uploads, log files, previous backups, and runtime lock files.',
                     'config/app.php and config/local.php are included as reference files and are not executed or overwritten during restore.',
                 ],
             ];
@@ -471,6 +479,95 @@ final class ConfigurationBackup
         }
         $pdo = null;
         return $schema;
+    }
+
+    /**
+     * Newer runs keep their source workbook inside exports/<runId>/source.xlsx.
+     * Older releases left it at uploads/<runId>.xlsx. Recover only those files
+     * referenced by report_runs and place them in the backup's export payload.
+     */
+    private static function copyLegacyRunSources(PDO $pdo, string $uploadsSource, string $exportsSource, string $exportsTarget, int &$totalBytes): int
+    {
+        $uploadsRoot = realpath($uploadsSource);
+        $exportsRoot = realpath($exportsSource);
+        $targetRoot = realpath($exportsTarget);
+        if ($uploadsRoot === false || $exportsRoot === false || $targetRoot === false) {
+            return 0;
+        }
+
+        $statement = $pdo->query('SELECT id FROM report_runs');
+        if ($statement === false) {
+            throw new RuntimeException('No se pudieron consultar las ejecuciones para respaldar sus XLSX históricos.');
+        }
+        $copied = 0;
+        foreach ($statement as $row) {
+            $runId = strtolower(trim((string) ($row['id'] ?? '')));
+            if (preg_match('/^[a-f0-9]{32}$/', $runId) !== 1) {
+                continue;
+            }
+
+            $runDirectory = realpath($exportsRoot . DIRECTORY_SEPARATOR . $runId);
+            if ($runDirectory === false || dirname($runDirectory) !== $exportsRoot || !is_dir($runDirectory)) {
+                continue;
+            }
+            $currentSourceCandidate = $runDirectory . DIRECTORY_SEPARATOR . 'source.xlsx';
+            if (!is_link($currentSourceCandidate) && is_file($currentSourceCandidate) && is_readable($currentSourceCandidate)) {
+                continue;
+            }
+
+            $legacyName = $runId . '.xlsx';
+            $legacyCandidate = $uploadsRoot . DIRECTORY_SEPARATOR . $legacyName;
+            if (is_link($legacyCandidate)) {
+                continue;
+            }
+            $legacyPath = realpath($legacyCandidate);
+            if ($legacyPath === false
+                || dirname($legacyPath) !== $uploadsRoot
+                || basename($legacyPath) !== $legacyName
+                || !is_file($legacyPath)
+                || !is_readable($legacyPath)
+                || strtolower(pathinfo($legacyPath, PATHINFO_EXTENSION)) !== 'xlsx') {
+                continue;
+            }
+
+            $size = @filesize($legacyPath);
+            if (!is_int($size) || $size < 1) {
+                continue;
+            }
+            if ($size > self::MAX_EXPANDED_BYTES || $totalBytes > self::MAX_EXPANDED_BYTES - $size) {
+                throw new RuntimeException('Los XLSX originales históricos superan el límite de 2 GiB del respaldo.');
+            }
+
+            $targetRunDirectory = $targetRoot . DIRECTORY_SEPARATOR . $runId;
+            self::ensureDirectory($targetRunDirectory);
+            $targetPath = $targetRunDirectory . DIRECTORY_SEPARATOR . 'source.xlsx';
+            if (file_exists($targetPath) || is_link($targetPath)) {
+                continue;
+            }
+            $temporaryPath = $targetRunDirectory . DIRECTORY_SEPARATOR . '.source-backup-' . bin2hex(random_bytes(6)) . '.tmp';
+            try {
+                if (!copy($legacyPath, $temporaryPath)) {
+                    throw new RuntimeException('No se pudo incluir un XLSX histórico en el respaldo.');
+                }
+                $sourceHash = hash_file('sha256', $legacyPath);
+                $copyHash = hash_file('sha256', $temporaryPath);
+                if (!is_string($sourceHash) || !is_string($copyHash) || !hash_equals($sourceHash, $copyHash)) {
+                    throw new RuntimeException('Un XLSX histórico no superó la verificación SHA-256 del respaldo.');
+                }
+                if (!rename($temporaryPath, $targetPath)) {
+                    throw new RuntimeException('No se pudo publicar la fuente XLSX histórica en el respaldo.');
+                }
+                @chmod($targetPath, 0600);
+                $totalBytes += $size;
+                $copied++;
+            } finally {
+                if (is_file($temporaryPath)) {
+                    @unlink($temporaryPath);
+                }
+            }
+        }
+
+        return $copied;
     }
 
     private static function copyPrivatePayload(string $source, string $destination, int &$totalBytes): void

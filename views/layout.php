@@ -6,8 +6,8 @@ use ZkTimeNet\Core\Html;
 
 $nav = [
     'upload' => ['Cargar reporte', 'upload', 'Operación'],
-    'dashboard' => ['Resumen', 'home', 'Operación'],
     'history' => ['Historial', 'history', 'Operación'],
+    'dashboard' => ['Resumen', 'home', 'Operación'],
     'departments' => ['Departamentos', 'grid', 'Configuración'],
 ];
 if (Auth::isAdmin()) {
@@ -30,16 +30,16 @@ $roleLabel = ($user['role'] ?? '') === 'admin' ? 'Administrador' : 'Nominista';
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#006ECA">
   <title><?= Html::escape($pageTitle) ?> | <?= Html::escape($branding['company_name']) ?></title>
-  <script src="assets/theme.js?v=1.2.19"></script>
-  <link rel="stylesheet" href="assets/app.css?v=1.2.19">
-  <link rel="stylesheet" href="assets/theme.css?v=1.2.19">
-  <script src="assets/app.js?v=1.2.19" defer></script>
+  <script src="assets/theme.js?v=1.2.31"></script>
+  <link rel="stylesheet" href="assets/app.css?v=1.2.31">
+  <link rel="stylesheet" href="assets/theme.css?v=1.2.31">
+  <script src="assets/app.js?v=1.2.31" defer></script>
 </head>
 <body class="app-body">
 <div class="app-shell">
   <aside class="sidebar" id="sidebar">
     <a class="brand" href="index.php" aria-label="Inicio">
-      <span class="brand-mark"><?= Html::escape($branding['brand_mark']) ?></span>
+      <?php if ($brandLogoAvailable): ?><img class="brand-logo-image" src="<?= Html::escape($brandLogoUrl) ?>" alt="Logotipo de <?= Html::escape($branding['company_name']) ?>"><?php else: ?><span class="brand-mark"><?= Html::escape($branding['brand_mark']) ?></span><?php endif; ?>
       <span class="brand-copy"><strong><?= Html::escape($branding['company_name']) ?></strong><small><?= Html::escape($branding['brand_tagline']) ?></small></span>
     </a>
     <div class="side-caption"><?= Html::escape($branding['platform_label']) ?></div>
@@ -87,6 +87,30 @@ $roleLabel = ($user['role'] ?? '') === 'admin' ? 'Administrador' : 'Nominista';
     </section>
     <footer class="page-footer"><span>© <?= date('Y') ?> <?= Html::escape($branding['company_name']) ?></span><span><?= Html::escape($branding['footer_text']) ?></span></footer>
   </main>
+</div>
+
+<div class="confirm-modal-backdrop" id="confirm-modal" hidden aria-hidden="true">
+  <section class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-title" aria-describedby="confirm-modal-message" tabindex="-1">
+    <header class="confirm-modal-header">
+      <span class="confirm-modal-icon" aria-hidden="true"><?= Html::icon('help') ?></span>
+      <div><div class="eyebrow">CONFIRMACIÓN</div><h2 id="confirm-modal-title">Confirmar operación</h2></div>
+    </header>
+    <p id="confirm-modal-message" class="confirm-modal-message" data-confirm-message>¿Deseas continuar con esta operación?</p>
+    <footer class="confirm-modal-footer">
+      <button type="button" class="btn btn-outline" data-confirm-cancel><?= Html::icon('cancel') ?> Cancelar</button>
+      <button type="button" class="btn btn-primary" data-confirm-accept><?= Html::icon('check') ?> Confirmar</button>
+    </footer>
+  </section>
+</div>
+
+<div class="operation-overlay" id="operation-overlay" hidden aria-hidden="true" role="status" aria-live="polite" aria-busy="true">
+  <section class="operation-overlay-card">
+    <span class="operation-spinner" aria-hidden="true"></span>
+    <h2 data-operation-title>Procesando operación</h2>
+    <p data-operation-message>Estamos trabajando con tus datos.</p>
+    <div class="operation-progress-track" aria-hidden="true"><span></span></div>
+    <small data-operation-detail>No cierres ni actualices esta ventana hasta que termine.</small>
+  </section>
 </div>
 
 <div class="help-modal-backdrop" id="help-modal" hidden aria-hidden="true">

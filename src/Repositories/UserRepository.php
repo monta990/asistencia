@@ -13,27 +13,31 @@ final class UserRepository
 
     public function all(): array
     {
-        return $this->pdo->query('SELECT id, name, username, role, is_active, created_at, last_login_at, failed_login_attempts, locked_until FROM users ORDER BY is_active DESC, CASE role WHEN \'admin\' THEN 0 ELSE 1 END, name COLLATE NOCASE')->fetchAll();
+        return $this->pdo->query('SELECT id, name, username, email, role, is_active, created_at, last_login_at, failed_login_attempts, locked_until FROM users ORDER BY is_active DESC, CASE role WHEN \'admin\' THEN 0 ELSE 1 END, name COLLATE NOCASE')->fetchAll();
     }
 
     public function find(int $id): ?array
     {
-        $statement = $this->pdo->prepare('SELECT id, name, username, role, is_active, created_at, last_login_at, failed_login_attempts, locked_until FROM users WHERE id = :id LIMIT 1');
+        $statement = $this->pdo->prepare('SELECT id, name, username, email, role, is_active, created_at, last_login_at, failed_login_attempts, locked_until FROM users WHERE id = :id LIMIT 1');
         $statement->execute(['id' => $id]);
         $row = $statement->fetch();
         return is_array($row) ? $row : null;
     }
 
-    public function save(?int $id, string $name, string $username, string $password, string $role): int
+    public function save(?int $id, string $name, string $username, string $email, string $password, string $role): int
     {
         $name = trim(preg_replace('/[\x00-\x1F\x7F]/u', '', $name) ?? '');
         $username = strtolower(trim($username));
         $role = strtolower(trim($role));
+        $email = strtolower(trim($email));
         if ($name === '' || strlen($name) > 120) {
             throw new RuntimeException('Escribe el nombre de la persona (máximo 120 caracteres).');
         }
         if (preg_match('/^[a-z0-9][a-z0-9._-]{2,31}$/', $username) !== 1) {
             throw new RuntimeException('El nombre de usuario debe tener entre 3 y 32 caracteres: letras, números, punto, guion o guion bajo.');
+        }
+        if ($email !== '' && (strlen($email) > 254 || filter_var($email, FILTER_VALIDATE_EMAIL) === false)) {
+            throw new RuntimeException('Escribe un correo electrónico válido (máximo 254 caracteres).');
         }
         if (!in_array($role, ['admin', 'nominista'], true)) {
             throw new RuntimeException('Selecciona un perfil válido.');
@@ -62,9 +66,10 @@ final class UserRepository
                 if (!is_string($hash) || $hash === '') {
                     throw new RuntimeException('No se pudo proteger la contraseña del usuario.');
                 }
-                $statement = $this->pdo->prepare('INSERT INTO users (username, email, password_hash, created_at, last_login_at, name, role, is_active) VALUES (:username, \'\', :password_hash, :created_at, NULL, :name, :role, 1)');
+                $statement = $this->pdo->prepare('INSERT INTO users (username, email, password_hash, created_at, last_login_at, name, role, is_active) VALUES (:username, :email, :password_hash, :created_at, NULL, :name, :role, 1)');
                 $statement->execute([
                     'username' => $username,
+                    'email' => $email,
                     'password_hash' => $hash,
                     'created_at' => date(DATE_ATOM),
                     'name' => $name,
@@ -73,8 +78,8 @@ final class UserRepository
                 return (int) $this->pdo->lastInsertId();
             }
 
-            $parameters = ['username' => $username, 'name' => $name, 'role' => $role, 'id' => $id];
-            $sql = 'UPDATE users SET username = :username, name = :name, role = :role';
+            $parameters = ['username' => $username, 'email' => $email, 'name' => $name, 'role' => $role, 'id' => $id];
+            $sql = 'UPDATE users SET username = :username, email = :email, name = :name, role = :role';
             if ($password !== '') {
                 $hash = password_hash($password, PASSWORD_DEFAULT);
                 if (!is_string($hash) || $hash === '') {
@@ -95,6 +100,27 @@ final class UserRepository
                 throw new RuntimeException('Ese nombre de usuario ya está ocupado. Elige otro.');
             }
             throw $exception;
+        }
+    }
+
+    /** Actualiza el correo de notificación de la cuenta autenticada. Una cadena vacía desactiva el resumen por correo. */
+    public function saveOwnEmail(int $id, string $email): void
+    {
+        $email = strtolower(trim($email));
+        if ($id < 1) {
+            throw new RuntimeException('No se pudo identificar tu cuenta. Cierra sesión y vuelve a ingresar.');
+        }
+        if ($email !== '' && (strlen($email) > 254 || filter_var($email, FILTER_VALIDATE_EMAIL) === false)) {
+            throw new RuntimeException('Escribe un correo electrónico válido (máximo 254 caracteres).');
+        }
+        $statement = $this->pdo->prepare('UPDATE users SET email = :email WHERE id = :id AND is_active = 1');
+        $statement->execute(['email' => $email, 'id' => $id]);
+        if ($statement->rowCount() !== 1) {
+            $check = $this->pdo->prepare('SELECT 1 FROM users WHERE id = :id AND is_active = 1 LIMIT 1');
+            $check->execute(['id' => $id]);
+            if ($check->fetchColumn() === false) {
+                throw new RuntimeException('No se encontró una cuenta activa para actualizar.');
+            }
         }
     }
 

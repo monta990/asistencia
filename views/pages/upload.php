@@ -25,7 +25,7 @@ $disabledDepartmentCount = count(array_filter($departmentRows, static fn (array 
 <div class="content-grid upload-grid">
   <section class="panel upload-panel">
     <div class="step-heading"><span class="step-number">01</span><div><h3>Archivo de origen</h3><p>Reporte exportado desde ZKTimeNet en formato XLSX.</p></div></div>
-    <form method="post" enctype="multipart/form-data" class="upload-form">
+    <form method="post" enctype="multipart/form-data" class="upload-form" data-operation data-operation-title="Procesando reporte de asistencia" data-operation-message="Estamos leyendo el XLSX, separando los departamentos y generando los archivos individuales y el ZIP." data-operation-detail="Esta operación puede tardar unos momentos. No cierres ni actualices esta ventana.">
       <input type="hidden" name="_token" value="<?= Html::escape(Csrf::token()) ?>"><input type="hidden" name="action" value="process_report">
       <label class="dropzone" for="report-file"><span class="upload-cloud"><?= Html::icon('upload') ?></span><strong>Selecciona tu archivo de asistencia</strong><span class="muted">Archivo Excel (.xlsx) · máximo <?= number_format($maxMb, 0) ?> MB</span><span class="file-selected" data-file-name>Ningún archivo seleccionado</span></label>
       <input class="visually-hidden" id="report-file" type="file" name="report" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required>

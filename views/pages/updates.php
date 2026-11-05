@@ -48,8 +48,8 @@ $requiredExtensions = ['pdo_sqlite', 'zip', 'dom', 'openssl'];
       <?php elseif ($migrationStatus['future']): ?>
         <div class="alert alert-error">La base de datos es más nueva que este código. Se detuvo el proceso para evitar degradación.</div>
       <?php elseif ($hasPendingMigrations): ?>
-        <div class="alert alert-warning"><strong>Hay actualizaciones pendientes.</strong> Se creará un respaldo SQLite antes de ejecutar los cambios. La migración 005 agrega bloqueo de cuentas por intentos fallidos e invalidación de sesiones antiguas.</div>
-        <form method="post" class="update-migration-form">
+        <div class="alert alert-warning"><strong>Hay actualizaciones pendientes. Se creará un respaldo SQLite antes de ejecutar los cambios.</strong> La actualización es obligatoria para poder seguir usando la plataforma.</div>
+        <form method="post" class="update-migration-form" data-operation data-operation-title="Aplicando actualizaciones" data-operation-message="Se está generando un respaldo y aplicando las migraciones pendientes." data-operation-detail="No cierres ni actualices esta ventana hasta que el sistema confirme que terminó.">
           <input type="hidden" name="_token" value="<?= Html::escape(Csrf::token()) ?>">
           <input type="hidden" name="action" value="run_migrations">
           <button type="submit" class="btn btn-primary"><?= Html::icon('refresh') ?> Aplicar actualizaciones</button>
@@ -129,7 +129,7 @@ $requiredExtensions = ['pdo_sqlite', 'zip', 'dom', 'openssl'];
       <div class="info-note restore-emergency-note"><strong>¿No puedes entrar al panel?</strong><p>La restauración requiere que SQLite permita autenticar a un administrador. Si la base está dañada, utiliza el procedimiento de recuperación manual de <code>INSTALL.md</code> con IIS detenido.</p></div>
     </div>
 
-    <form method="post" enctype="multipart/form-data" class="restore-form" data-confirm="ATENCIÓN: se sobrescribirán los datos actuales con los del respaldo. Se reemplazarán usuarios, contraseñas, configuración, SQLite y reportes; se cerrará tu sesión y deberás ingresar con las credenciales del respaldo. Antes se generará una copia automática de seguridad. ¿Deseas continuar?">
+    <form method="post" enctype="multipart/form-data" class="restore-form" data-confirm-title="Restaurar respaldo" data-confirm-accept="Validar y restaurar" data-confirm-variant="danger" data-operation data-operation-title="Restaurando respaldo" data-operation-message="Se está validando el ZIP y sustituyendo los datos actuales por la copia seleccionada." data-operation-detail="El proceso crea una copia de seguridad de reversión. No cierres ni actualices esta ventana." data-confirm="ATENCIÓN: se sobrescribirán los datos actuales con los del respaldo. Se reemplazarán usuarios, contraseñas, configuración, SQLite y reportes; se cerrará tu sesión y deberás ingresar con las credenciales del respaldo. Antes se generará una copia automática de seguridad. ¿Deseas continuar?">
       <input type="hidden" name="_token" value="<?= Html::escape(Csrf::token()) ?>">
       <input type="hidden" name="action" value="restore_config_backup">
       <label>Archivo ZIP de respaldo

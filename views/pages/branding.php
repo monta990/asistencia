@@ -6,12 +6,12 @@ use ZkTimeNet\Core\Html;
   <div>
     <div class="eyebrow">CONFIGURACIÓN DEL SISTEMA</div>
     <h2>Identidad visual</h2>
-    <p class="muted">Personaliza el nombre, logotipo de texto y etiquetas visibles en el acceso, navegación, encabezados, pie de página y mensajes de correo.</p>
+    <p class="muted">Personaliza el logotipo, nombre de la empresa y etiquetas visibles en el acceso, navegación, encabezados, pie de página y mensajes de correo.</p>
   </div>
 </div>
 <div class="content-grid branding-layout">
   <section class="panel branding-form-panel">
-    <form method="post" class="stack-form">
+    <form method="post" enctype="multipart/form-data" class="stack-form">
       <input type="hidden" name="_token" value="<?= Html::escape(Csrf::token()) ?>">
       <input type="hidden" name="action" value="save_branding">
       <div class="panel-header">
@@ -22,6 +22,20 @@ use ZkTimeNet\Core\Html;
         <label class="span-2">Nombre de la empresa
           <input type="text" name="company_name" required maxlength="100" value="<?= Html::escape($branding['company_name']) ?>" placeholder="Nombre de la empresa">
         </label>
+        <label class="span-2">Logotipo de la empresa (opcional)
+          <input class="branding-logo-input" type="file" name="brand_logo" accept="image/png,image/jpeg,image/gif,image/webp" data-brand-logo-input>
+          <small>PNG, JPG/JPEG, GIF o WebP. Máximo 2 MB, 2400 × 1200 píxeles y 2.5 megapíxeles. El archivo se almacena fuera del sitio público.</small>
+        </label>
+        <div class="span-2 branding-logo-options">
+          <div class="branding-logo-status">
+            <?php if ($brandLogoAvailable): ?>
+              <span class="status-pill status-success">Logotipo configurado</span>
+              <label class="check-inline"><input type="checkbox" name="remove_brand_logo" value="1" data-brand-logo-remove> Quitar logotipo y usar las siglas</label>
+            <?php else: ?>
+              <span class="muted small">No hay una imagen cargada. Se mostrarán las siglas como alternativa.</span>
+            <?php endif; ?>
+          </div>
+        </div>
         <label>Texto del logotipo / siglas
           <input type="text" name="brand_mark" required maxlength="8" value="<?= Html::escape($branding['brand_mark']) ?>" placeholder="ABC">
           <small>Se muestra dentro del cuadro de marca. Admite hasta 8 caracteres.</small>
@@ -48,11 +62,12 @@ use ZkTimeNet\Core\Html;
       <div class="branding-preview-wrap">
         <div class="eyebrow">VISTA PREVIA</div>
         <div class="branding-preview">
-          <span class="brand-mark"><?= Html::escape($branding['brand_mark']) ?></span>
-          <span><strong><?= Html::escape($branding['company_name']) ?></strong><small><?= Html::escape($branding['brand_tagline']) ?></small></span>
+          <img class="brand-logo-image" data-brand-logo-preview src="<?= $brandLogoAvailable ? Html::escape($brandLogoUrl) : '' ?>" alt="Logotipo de <?= Html::escape($branding['company_name']) ?>" <?= $brandLogoAvailable ? '' : 'hidden' ?>>
+          <span class="brand-mark" data-brand-logo-fallback <?= $brandLogoAvailable ? 'hidden' : '' ?>><?= Html::escape($branding['brand_mark']) ?></span>
+          <span class="branding-preview-copy"><strong><?= Html::escape($branding['company_name']) ?></strong><small><?= Html::escape($branding['brand_tagline']) ?></small></span>
           <span class="branding-preview-platform"><?= Html::escape($branding['platform_label']) ?></span>
         </div>
-        <p class="muted small">La vista previa muestra cómo aparecerá la marca en el menú lateral. Los cambios se aplican en la siguiente página que abras.</p>
+        <p class="muted small">La vista previa muestra el logotipo o, cuando no hay imagen, las siglas. Al guardar, se aplicará en el menú lateral y en el acceso al sistema.</p>
       </div>
       <div class="form-footer">
         <span class="muted">Los cambios se guardan en SQLite y sobreviven a las actualizaciones.</span>

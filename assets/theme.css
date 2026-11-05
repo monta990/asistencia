@@ -174,3 +174,202 @@
 :root[data-theme="dark"] .run-filename-edit input{color:#EAF1F8;background:#0C1827;border-color:#40556D}
 :root[data-theme="dark"] .run-created-by{color:#9AADC1}
 :root[data-theme="dark"] .run-created-by strong{color:var(--ink)}
+
+
+:root[data-theme="dark"] .user-modal {
+  color: var(--text);
+  background: #111F30;
+  border-color: var(--line);
+}
+:root[data-theme="dark"] .user-modal-header {
+  border-bottom-color: var(--line);
+}
+
+/* Tema claro: controles interactivos visibles y coherentes en todas las pantallas. */
+:root[data-theme="light"] {
+  --light-control-text: #29415C;
+  --light-control-bg: #E6EDF5;
+  --light-control-bg-hover: #D7E2ED;
+  --light-control-border: #B7C6D6;
+  --light-control-border-hover: #91A7BE;
+  --light-control-focus: rgba(0, 110, 202, .28);
+}
+
+:root[data-theme="light"] .btn-outline {
+  color: var(--light-control-text);
+  background: var(--light-control-bg);
+  border-color: var(--light-control-border);
+  box-shadow: 0 1px 2px rgba(25, 48, 74, .07);
+}
+:root[data-theme="light"] .btn-outline:hover:not(:disabled) {
+  color: #172B43;
+  background: var(--light-control-bg-hover);
+  border-color: var(--light-control-border-hover);
+  box-shadow: 0 2px 5px rgba(25, 48, 74, .10);
+}
+:root[data-theme="light"] .btn-quiet {
+  color: var(--light-control-text);
+  background: #E2E9F1;
+  border-color: #B9C7D5;
+  box-shadow: 0 1px 2px rgba(25, 48, 74, .07);
+}
+:root[data-theme="light"] .btn-quiet:hover:not(:disabled) {
+  color: #172B43;
+  background: #D3DEE9;
+  border-color: #A4B5C7;
+}
+:root[data-theme="light"] .btn-danger-quiet {
+  color: #9F2632;
+  background: #FCEBED;
+  border-color: #E5B8BE;
+  box-shadow: 0 1px 2px rgba(118, 28, 39, .06);
+}
+:root[data-theme="light"] .btn-danger-quiet:hover:not(:disabled) {
+  color: #811B27;
+  background: #F7DDE1;
+  border-color: #D99AA3;
+}
+:root[data-theme="light"] .btn-white {
+  color: #005299;
+  background: #EAF1F8;
+  border-color: #BDCCDC;
+}
+:root[data-theme="light"] .btn-white:hover:not(:disabled) {
+  color: #003F76;
+  background: #DCE8F4;
+  border-color: #9FB4CA;
+}
+
+/* El acceso a Mi cuenta también es un control del encabezado. */
+:root[data-theme="light"] .user-chip {
+  padding: 5px 10px 5px 5px;
+  border: 1px solid #C3CEDA;
+  border-radius: 8px;
+  color: #29415C;
+  background: #F1F5F9;
+}
+:root[data-theme="light"] .user-chip:hover {
+  color: #172B43;
+  background: #E3EBF3;
+  border-color: #A8B9CA;
+}
+:root[data-theme="light"] .user-chip-caret { color: #52657A; }
+:root[data-theme="light"] .user-chip:focus-visible {
+  outline: 3px solid var(--light-control-focus);
+  outline-offset: 2px;
+}
+
+/* Acciones pequeñas que no utilizan la clase .btn. */
+:root[data-theme="light"] .filename-edit-button,
+:root[data-theme="light"] .help-modal-close {
+  color: #29415C;
+  background: #E6EDF5;
+  border-color: #B7C6D6;
+  box-shadow: 0 1px 2px rgba(25, 48, 74, .07);
+}
+:root[data-theme="light"] .filename-edit-button:hover,
+:root[data-theme="light"] .help-modal-close:hover {
+  color: #172B43;
+  background: #D7E2ED;
+  border-color: #91A7BE;
+}
+:root[data-theme="light"] .alert-close {
+  min-width: 28px;
+  min-height: 28px;
+  padding: 0 6px;
+  border: 1px solid rgba(41, 65, 92, .24);
+  border-radius: 6px;
+  color: #29415C;
+  background: rgba(255, 255, 255, .82);
+  box-shadow: 0 1px 2px rgba(25, 48, 74, .08);
+}
+:root[data-theme="light"] .alert-close:hover {
+  color: #172B43;
+  background: #FFFFFF;
+  border-color: rgba(41, 65, 92, .42);
+}
+:root[data-theme="light"] .mobile-menu {
+  width: 38px;
+  height: 38px;
+  border: 1px solid #B7C6D6;
+  border-radius: 7px;
+  color: #29415C;
+  background: #E6EDF5;
+}
+:root[data-theme="light"] .mobile-menu:hover {
+  color: #172B43;
+  background: #D7E2ED;
+  border-color: #91A7BE;
+}
+
+/* Botones de variables, selectores tipo tarjeta y zona de carga también son acciones. */
+:root[data-theme="light"] .variable-item {
+  color: #29415C;
+  background: #F1F5F9;
+  border-color: #C2CEDA;
+  box-shadow: 0 1px 2px rgba(25, 48, 74, .045);
+}
+:root[data-theme="light"] .variable-item:hover {
+  background: #E5EFF8;
+  border-color: #8FAFCB;
+}
+:root[data-theme="light"] .variable-item code { color: #005299; }
+:root[data-theme="light"] .variable-item span { color: #52657A; }
+:root[data-theme="light"] .variable-item i { color: #425A74; }
+:root[data-theme="light"] .check-card {
+  background: #F6F9FC;
+  border-color: #BECBD9;
+}
+:root[data-theme="light"] .check-card:hover {
+  background: #EDF3F9;
+  border-color: #91A7BE;
+}
+:root[data-theme="light"] .check-visual { border-color: #879CB1; }
+:root[data-theme="light"] .check-card:focus-within {
+  outline: 3px solid var(--light-control-focus);
+  outline-offset: 2px;
+}
+:root[data-theme="light"] .dropzone {
+  background: #F5F9FE;
+  border-color: #91AFCB;
+}
+:root[data-theme="light"] .dropzone:hover,
+:root[data-theme="light"] .dropzone.is-dragover {
+  background: #E8F2FC;
+  border-color: #006ECA;
+}
+:root[data-theme="light"] .branding-logo-input {
+  color: #29415C;
+  background: #F5F8FC;
+  border-color: #91AFCB;
+}
+:root[data-theme="light"] .branding-logo-input::file-selector-button {
+  color: #fff;
+  background: #006ECA;
+  border: 1px solid #005299;
+}
+:root[data-theme="light"] .branding-logo-input::file-selector-button:hover {
+  background: #005299;
+}
+
+/* El anillo de teclado es común a todos los controles, incluidos los de icono. */
+:root[data-theme="light"] .btn:focus-visible,
+:root[data-theme="light"] .filename-edit-button:focus-visible,
+:root[data-theme="light"] .bulk-modal-x:focus-visible,
+:root[data-theme="light"] .help-modal-close:focus-visible,
+:root[data-theme="light"] .alert-close:focus-visible,
+:root[data-theme="light"] .mobile-menu:focus-visible,
+:root[data-theme="light"] .variable-item:focus-visible,
+:root[data-theme="light"] .dropzone:focus-visible {
+  outline: 3px solid var(--light-control-focus);
+  outline-offset: 2px;
+}
+:root[data-theme="light"] .btn:disabled,
+:root[data-theme="light"] .filename-edit-button:disabled,
+:root[data-theme="light"] .help-modal-close:disabled,
+:root[data-theme="light"] .mobile-menu:disabled,
+:root[data-theme="light"] .variable-item:disabled {
+  opacity: .58;
+  cursor: not-allowed;
+  box-shadow: none;
+}

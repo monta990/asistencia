@@ -43,16 +43,34 @@ try {
         $days = max(1, (int) Config::get('temporary_upload_retention_days', 1));
         $cutoff = time() - ($days * 86400);
         $uploadsBase = (string) Config::get('storage_uploads');
+        $referencedRunUploads = [];
+        foreach ($pdo->query('SELECT id FROM report_runs') as $runRow) {
+            $runId = strtolower(trim((string) ($runRow['id'] ?? '')));
+            if (preg_match('/^[a-f0-9]{32}$/', $runId) === 1) {
+                $referencedRunUploads[$runId . '.xlsx'] = true;
+            }
+        }
         $staleUploads = 0;
+        $preservedRunUploads = 0;
         if (is_dir($uploadsBase)) {
             foreach (new FilesystemIterator($uploadsBase, FilesystemIterator::SKIP_DOTS) as $item) {
-                if ($item->isFile() && $item->getMTime() < $cutoff) {
+                if (!$item->isFile() || $item->isLink()) {
+                    continue;
+                }
+                // Historical runs keep their source as uploads/<run-id>.xlsx.
+                // Never expire a file while its run remains in report_runs.
+                if (isset($referencedRunUploads[strtolower($item->getFilename())])) {
+                    $preservedRunUploads++;
+                    continue;
+                }
+                if ($item->getMTime() < $cutoff) {
                     @unlink($item->getPathname());
                     $staleUploads++;
                 }
             }
         }
         echo "Reportes XLSX/ZIP: permanentes (sin eliminación automática)." . PHP_EOL;
+        echo "XLSX originales históricos conservados por su ejecución: {$preservedRunUploads}" . PHP_EOL;
         echo "Cargas temporales huérfanas eliminadas (>{$days} días): {$staleUploads}" . PHP_EOL;
         exit(0);
     }

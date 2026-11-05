@@ -7,8 +7,8 @@ use PDO;
 
 final class Version
 {
-    public const VERSION = '1.2.19';
-    public const SCHEMA_TARGET = 5;
+    public const VERSION = '1.2.31';
+    public const SCHEMA_TARGET = 6;
     public const LOCKOUT_SCHEMA = 5;
     public const USER_AUTH_SCHEMA = 3;
     public const MINIMUM_PHP = 80500;
