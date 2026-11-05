@@ -38,6 +38,7 @@ try {
         'storage_private' => $temporary . DIRECTORY_SEPARATOR . 'private',
         'storage_exports' => $temporary . DIRECTORY_SEPARATOR . 'exports',
         'storage_uploads' => $temporary . DIRECTORY_SEPARATOR . 'uploads',
+        'storage_uploads' => $temporary . DIRECTORY_SEPARATOR . 'uploads',
         'storage_backups' => $temporary . DIRECTORY_SEPARATOR . 'backups',
     ]);
     file_put_contents($temporary . DIRECTORY_SEPARATOR . 'private' . DIRECTORY_SEPARATOR . 'app.key', random_bytes(32));
@@ -51,16 +52,19 @@ try {
     $migrationResult = $migrator->migrate();
     $assert($migrator->currentVersion() === Version::SCHEMA_TARGET && $migrationResult['applied'] === [1, 2, 3, 4, 5, 6], 'el fixture usa el esquema completo 1–6');
 
-    $runId = bin2hex(random_bytes(16));
-    $legacySource = $temporary . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . $runId . '.xlsx';
-    file_put_contents($legacySource, 'XLSX histórico de prueba');
-    mkdir($temporary . DIRECTORY_SEPARATOR . 'exports' . DIRECTORY_SEPARATOR . $runId, 0700, true);
+    $legacyRunId = '0123456789abcdef0123456789abcdef';
+    file_put_contents($temporary . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . $legacyRunId . '.xlsx', 'XLSX histórico vinculado a la ejecución');
+    $runId = str_repeat('a', 32);
+    $runExportDirectory = $temporary . DIRECTORY_SEPARATOR . 'exports' . DIRECTORY_SEPARATOR . $runId;
+    mkdir($runExportDirectory, 0700, true);
+    file_put_contents($runExportDirectory . DIRECTORY_SEPARATOR . 'source.xlsx', 'XLSX fuente original de prueba');
+    file_put_contents($runExportDirectory . DIRECTORY_SEPARATOR . 'presentation.json', json_encode(['created_by' => 'Usuario de prueba', 'generated_on' => '2026-11-05'], JSON_THROW_ON_ERROR));
     $runInsert = $pdo->prepare('INSERT INTO report_runs (id, original_filename, archive_name, archive_path, week, iso_year, start_date, end_date, departments_count, email_sent_count, email_failed_count, status, created_by, created_at) VALUES (:id, :original, :archive_name, :archive_path, :week, :year, :start, :end, 0, 0, 0, :status, NULL, :created)');
     $runInsert->execute([
-        ':id' => $runId,
+        ':id' => $legacyRunId,
         ':original' => 'historical.xlsx',
         ':archive_name' => 'historical.zip',
-        ':archive_path' => $runId . '/historical.zip',
+        ':archive_path' => $legacyRunId . '/historical.zip',
         ':week' => '44',
         ':year' => '2026',
         ':start' => '2026-10-26',
@@ -79,8 +83,10 @@ try {
     $assert(in_array('data/private/app.key', $names, true), 'el respaldo incluye la llave SMTP');
     $assert(in_array('data/private/signatures/signature.svg', $names, true), 'el respaldo incluye la firma privada');
     $assert(in_array('data/exports/report.zip', $names, true), 'el respaldo incluye reportes permanentes');
-    $assert(in_array('data/exports/' . $runId . '/source.xlsx', $names, true), 'el respaldo incluye fuentes XLSX históricos ligados a ejecuciones');
-    $assert($zip->getFromName('data/exports/' . $runId . '/source.xlsx') === 'XLSX histórico de prueba', 'la fuente XLSX histórica mantiene su contenido');
+    $assert(in_array('data/exports/' . $legacyRunId . '/source.xlsx', $names, true), 'el respaldo recupera uploads/<run-id>.xlsx dentro de la carpeta permanente de la ejecución histórica');
+    $assert($zip->getFromName('data/exports/' . $legacyRunId . '/source.xlsx') === 'XLSX histórico vinculado a la ejecución', 'la fuente histórica se copia byte por byte desde uploads al respaldo');
+    $assert(in_array('data/exports/' . $runId . '/source.xlsx', $names, true), 'el respaldo incluye el XLSX fuente privado para regenerar');
+    $assert(in_array('data/exports/' . $runId . '/presentation.json', $names, true), 'el respaldo incluye los metadatos de autoría/fecha de la ejecución');
     $assert(in_array('metadata/config-app.php', $names, true), 'el respaldo incluye config/app.php como referencia');
     $assert(!in_array('data/private/logs/private.log', $names, true), 'el respaldo excluye logs');
     $zip->close();
@@ -92,6 +98,10 @@ try {
     ConfigurationBackup::applyRestore($stage);
     $assert(file_get_contents($temporary . DIRECTORY_SEPARATOR . 'private' . DIRECTORY_SEPARATOR . 'app.key') !== str_repeat('x', 32), 'la restauración repone la llave del respaldo');
     $assert(!is_file($temporary . DIRECTORY_SEPARATOR . 'exports' . DIRECTORY_SEPARATOR . 'new-file.txt'), 'la restauración reemplaza los reportes actuales');
+    $assert(file_get_contents($temporary . DIRECTORY_SEPARATOR . 'exports' . DIRECTORY_SEPARATOR . $legacyRunId . DIRECTORY_SEPARATOR . 'source.xlsx') === 'XLSX histórico vinculado a la ejecución', 'la restauración conserva la fuente XLSX histórica recuperada');
+    $assert(file_get_contents($runExportDirectory . DIRECTORY_SEPARATOR . 'source.xlsx') === 'XLSX fuente original de prueba', 'la restauración recupera el XLSX fuente para regeneración');
+    $restoredPresentation = json_decode((string) file_get_contents($runExportDirectory . DIRECTORY_SEPARATOR . 'presentation.json'), true);
+    $assert(is_array($restoredPresentation) && $restoredPresentation['created_by'] === 'Usuario de prueba' && $restoredPresentation['generated_on'] === '2026-11-05', 'la restauración recupera la autoría/fecha de la ejecución');
     $assert(is_file($temporary . DIRECTORY_SEPARATOR . 'private' . DIRECTORY_SEPARATOR . 'logs' . DIRECTORY_SEPARATOR . 'private.log'), 'los logs locales se conservan fuera del payload restaurado');
     echo "OK: {$assertions} comprobaciones funcionales de ZIP, validación, respaldo y restauración.\n";
 } finally {
