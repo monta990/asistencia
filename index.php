@@ -20,7 +20,10 @@ use ZkTimeNet\Services\DepartmentSplitter;
 use ZkTimeNet\Services\ConfigurationBackup;
 use ZkTimeNet\Services\MailerService;
 use ZkTimeNet\Services\SignatureImage;
+use ZkTimeNet\Services\BrandLogo;
 use ZkTimeNet\Services\TemplateRenderer;
+use ZkTimeNet\Services\RunSourceResolver;
+use ZkTimeNet\Services\BulkMailSummaryRenderer;
 
 if (!defined('ZKTIME_BOOTSTRAP_ALLOWED')) {
     define('ZKTIME_BOOTSTRAP_ALLOWED', true);
@@ -43,6 +46,22 @@ try {
     http_response_code(503);
     $publicError = ErrorLogger::publicMessage($exception, 'No fue posible abrir el almacenamiento del sistema. Contacta al administrador.', 'database-connection');
     echo '<!doctype html><html lang="es"><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><title>No se puede abrir el sistema</title><body><h1>Control de asistencia</h1><p>' . Html::escape($publicError) . '</p></body></html>';
+    exit;
+}
+
+if ((string) ($_GET['action'] ?? '') === 'brand_logo') {
+    $brandingSettings = (new SettingsRepository($pdo))->get('branding', []);
+    $logoMetadata = is_array($brandingSettings) ? ($brandingSettings['logo_image'] ?? null) : null;
+    $logoFile = BrandLogo::resolve($logoMetadata, (string) Config::get('storage_private'));
+    if ($logoFile === null) {
+        http_response_code(404);
+        exit('No hay un logotipo configurado.');
+    }
+    header('Content-Type: ' . $logoFile['mime']);
+    header('Content-Length: ' . (string) filesize($logoFile['path']));
+    header('Cache-Control: public, max-age=300');
+    header('X-Content-Type-Options: nosniff');
+    readfile($logoFile['path']);
     exit;
 }
 
@@ -332,12 +351,15 @@ $settings = new SettingsRepository($pdo);
 $brandingDefaults = (array) Config::get('branding_defaults', []);
 $brandingSaved = $settings->get('branding', []);
 $branding = array_replace($brandingDefaults, is_array($brandingSaved) ? $brandingSaved : []);
+$logoFilename = is_array($branding['logo_image'] ?? null) ? (string) ($branding['logo_image']['filename'] ?? '') : '';
+$brandLogoAvailable = BrandLogo::resolve($branding['logo_image'] ?? null, (string) Config::get('storage_private')) !== null;
+$brandLogoUrl = 'index.php?action=brand_logo&v=' . substr(hash('sha256', $logoFilename), 0, 12);
 $reports = new ReportRepository($pdo);
 $users = new UserRepository($pdo);
 $mailer = new MailerService($settings);
 
 /** Envía un Excel histórico a los destinatarios actuales y registra cada intento. */
-$deliverDepartmentFile = static function (int $fileId, string $expectedRunId = '') use ($reports, $departments, $mailer, $branding): array {
+$deliverDepartmentFile = static function (int $fileId, string $expectedRunId = '', string $batchId = '') use ($reports, $departments, $mailer, $branding): array {
     if ($fileId < 1) {
         throw new InvalidArgumentException('El archivo de departamento seleccionado no es válido.');
     }
@@ -353,26 +375,34 @@ $deliverDepartmentFile = static function (int $fileId, string $expectedRunId = '
         throw new RuntimeException('El departamento ya no está vinculado al catálogo.');
     }
     if ((int) ($deliveryFile['department_enabled'] ?? 0) !== 1 || (int) ($deliveryFile['needs_configuration'] ?? 0) === 1) {
+        $message = (int) ($deliveryFile['needs_configuration'] ?? 0) === 1
+            ? 'Pendiente de configuración; el Excel se conserva, pero no se distribuye.'
+            : 'Departamento deshabilitado; el Excel se conserva, pero no se distribuye.';
+        if ($batchId !== '') {
+            $reports->recordBulkSkip($fileId, (string) $deliveryFile['run_id'], $batchId, 'disabled', $message);
+        }
         return [
             'status' => 'disabled',
             'department' => (string) $deliveryFile['department_name'],
             'sent' => 0,
             'failed' => 0,
             'skipped' => true,
-            'message' => (int) ($deliveryFile['needs_configuration'] ?? 0) === 1
-                ? 'Pendiente de configuración; el Excel se conserva, pero no se distribuye.'
-                : 'Departamento deshabilitado; el Excel se conserva, pero no se distribuye.',
+            'message' => $message,
         ];
     }
     $recipients = $departments->deliveryRecipients($departmentId);
     if ($recipients === []) {
+        $message = 'Sin correo configurado.';
+        if ($batchId !== '') {
+            $reports->recordBulkSkip($fileId, (string) $deliveryFile['run_id'], $batchId, 'no_recipients', $message);
+        }
         return [
             'status' => 'no_recipients',
             'department' => (string) $deliveryFile['department_name'],
             'sent' => 0,
             'failed' => 0,
             'skipped' => true,
-            'message' => 'Sin correo configurado.',
+            'message' => $message,
         ];
     }
 
@@ -432,7 +462,7 @@ $deliverDepartmentFile = static function (int $fileId, string $expectedRunId = '
         ));
     }
     $status = $delivery['failed'] === [] ? 'sent' : 'failed';
-    $reports->updateDelivery($fileId, $status, substr($errorText, 0, 1000), $delivery);
+    $reports->updateDelivery($fileId, $status, substr($errorText, 0, 1000), $delivery, $batchId !== '' ? $batchId : null);
 
     return [
         'status' => $status,
@@ -451,22 +481,135 @@ if (!in_array($page, $allowedPages, true)) {
     $page = 'dashboard';
 }
 
-if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && (string) ($_POST['action'] ?? '') === 'bulk_send_one') {
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && in_array((string) ($_POST['action'] ?? ''), ['bulk_send_start', 'bulk_send_one', 'bulk_send_summary'], true)) {
     header('Content-Type: application/json; charset=UTF-8');
     header('Cache-Control: no-store');
+    $jsonAction = (string) ($_POST['action'] ?? '');
+    $expectedRunId = trim((string) ($_GET['run'] ?? ''));
+    $authenticatedUserId = (int) (Auth::user()['id'] ?? 0);
+    $batchId = strtolower(trim((string) ($_POST['batch_id'] ?? '')));
+    $summaryClaimed = false;
     try {
         Csrf::verify(isset($_POST['_token']) ? (string) $_POST['_token'] : null);
-        set_time_limit(300);
-        $fileId = filter_var($_POST['file_id'] ?? null, FILTER_VALIDATE_INT);
-        $expectedRunId = (string) ($_GET['run'] ?? '');
+        if ($authenticatedUserId < 1) {
+            throw new RuntimeException('No se pudo identificar la cuenta que inició el envío masivo.');
+        }
         if ($expectedRunId === '') {
             throw new InvalidArgumentException('No se indicó la ejecución del historial.');
         }
-        $result = $deliverDepartmentFile((int) ($fileId ?: 0), $expectedRunId);
-        echo json_encode(['ok' => true, 'result' => $result], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR);
+        set_time_limit(300);
+
+        if ($jsonAction === 'bulk_send_start') {
+            $newBatchId = $reports->createBulkMailBatch($expectedRunId, $authenticatedUserId);
+            echo json_encode(['ok' => true, 'batch_id' => $newBatchId], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR);
+            exit;
+        }
+
+        if (!preg_match('/^[a-f0-9]{32}$/', $batchId)) {
+            throw new InvalidArgumentException('El identificador del envío masivo no es válido.');
+        }
+        $batch = $reports->findBulkMailBatch($batchId, $authenticatedUserId, $expectedRunId);
+        if (!is_array($batch)) {
+            throw new RuntimeException('El envío masivo no existe o no pertenece a tu cuenta.');
+        }
+
+        if ($jsonAction === 'bulk_send_one') {
+            if ((string) $batch['summary_status'] !== 'pending') {
+                throw new RuntimeException('El lote de envío masivo ya fue cerrado.');
+            }
+            $fileId = filter_var($_POST['file_id'] ?? null, FILTER_VALIDATE_INT);
+            try {
+                $result = $deliverDepartmentFile((int) ($fileId ?: 0), $expectedRunId, $batchId);
+                echo json_encode(['ok' => true, 'result' => $result], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR);
+            } catch (Throwable $deliveryException) {
+                $publicError = ErrorLogger::publicMessage($deliveryException, 'No fue posible completar el envío. Inténtalo nuevamente o contacta al administrador.', 'bulk-mail-endpoint');
+                try {
+                    if ((int) ($fileId ?: 0) > 0) {
+                        $reports->recordBulkFailure((int) $fileId, $expectedRunId, $batchId, $publicError);
+                    }
+                } catch (Throwable) {
+                    // Conserva el error original si SQLite tampoco puede registrar la incidencia.
+                }
+                throw new RuntimeException($publicError, 0, $deliveryException);
+            }
+            exit;
+        }
+
+        // bulk_send_summary: cierra el lote y envía un único comprobante a la cuenta que lo inició.
+        if (!$reports->claimBulkMailSummary($batchId, $authenticatedUserId, $expectedRunId)) {
+            $currentBatch = $reports->findBulkMailBatch($batchId, $authenticatedUserId, $expectedRunId) ?? [];
+            $currentAccount = $users->find($authenticatedUserId) ?? [];
+            echo json_encode([
+                'ok' => true,
+                'sent' => (string) ($currentBatch['summary_status'] ?? '') === 'sent',
+                'status' => (string) ($currentBatch['summary_status'] ?? 'processing'),
+                'email' => (string) ($currentAccount['email'] ?? ''),
+                'message' => (string) ($currentBatch['summary_error'] ?? ''),
+            ], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR);
+            exit;
+        }
+
+        $summaryClaimed = true;
+        $clientIssues = json_decode((string) ($_POST['client_issues'] ?? '[]'), true);
+        if (!is_array($clientIssues)) {
+            $clientIssues = [];
+        }
+        foreach (array_slice($clientIssues, 0, 250) as $issue) {
+            if (!is_array($issue)) {
+                continue;
+            }
+            $issueFileId = filter_var($issue['file_id'] ?? null, FILTER_VALIDATE_INT);
+            if ($issueFileId === false || (int) $issueFileId < 1) {
+                continue;
+            }
+            $reason = trim((string) ($issue['reason'] ?? 'No se recibió confirmación del navegador.'));
+            $file = $reports->findDepartmentFileForDelivery((int) $issueFileId);
+            if (is_array($file) && hash_equals($expectedRunId, (string) $file['run_id'])) {
+                $reports->recordBulkClientIssue((int) $issueFileId, $expectedRunId, $batchId, $reason);
+            }
+        }
+
+        $account = $users->find($authenticatedUserId);
+        $accountEmail = is_array($account) ? strtolower(trim((string) ($account['email'] ?? ''))) : '';
+        if ($accountEmail === '' || filter_var($accountEmail, FILTER_VALIDATE_EMAIL) === false) {
+            $reports->updateBulkMailSummaryStatus($batchId, 'no_email');
+            echo json_encode(['ok' => true, 'sent' => false, 'status' => 'no_email'], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR);
+            exit;
+        }
+
+        $run = $reports->findRun($expectedRunId);
+        if (!is_array($run)) {
+            throw new RuntimeException('No se encontró la ejecución asociada al envío masivo.');
+        }
+        $events = $reports->bulkMailEvents($batchId);
+        $brandingForSummary = $settings->get('branding', []);
+        $brandingForSummary = is_array($brandingForSummary) ? $brandingForSummary : [];
+        $summary = BulkMailSummaryRenderer::render(
+            $run,
+            $account ?? [],
+            $events,
+            (string) ($brandingForSummary['company_name'] ?? 'CY ALIMENTOS'),
+            (string) ($brandingForSummary['application_name'] ?? 'Control de asistencia')
+        );
+        try {
+            $mailer->sendBulkSummary($accountEmail, $summary['subject'], $summary['html'], $summary['text']);
+            $reports->updateBulkMailSummaryStatus($batchId, 'sent');
+            echo json_encode(['ok' => true, 'sent' => true, 'status' => 'sent', 'email' => $accountEmail, 'stats' => $summary['stats']], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR);
+        } catch (Throwable $mailException) {
+            $publicError = ErrorLogger::publicMessage($mailException, 'No se pudo enviar el comprobante de resultados. Revisa la configuración SMTP.', 'bulk-mail-summary');
+            $reports->updateBulkMailSummaryStatus($batchId, 'failed', $publicError);
+            echo json_encode(['ok' => true, 'sent' => false, 'status' => 'failed', 'error' => substr($publicError, 0, 500)], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR);
+        }
     } catch (Throwable $exception) {
+        if ($summaryClaimed && preg_match('/^[a-f0-9]{32}$/', $batchId)) {
+            try {
+                $reports->updateBulkMailSummaryStatus($batchId, 'failed', 'No se pudo generar el comprobante.');
+            } catch (Throwable) {
+                // Mantiene la respuesta original si también falla el registro del estado.
+            }
+        }
         http_response_code($exception instanceof \InvalidArgumentException ? 422 : 500);
-        $publicError = ErrorLogger::publicMessage($exception, 'No fue posible completar el envío. Inténtalo nuevamente o contacta al administrador.', 'bulk-mail-endpoint');
+        $publicError = ErrorLogger::publicMessage($exception, 'No fue posible completar la operación de envío masivo.', 'bulk-mail-endpoint');
         echo json_encode(['ok' => false, 'error' => substr($publicError, 0, 500)], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
     }
     exit;
@@ -476,7 +619,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     try {
         Csrf::verify(isset($_POST['_token']) ? (string) $_POST['_token'] : null);
         $postAction = (string) ($_POST['action'] ?? '');
-        $administratorActions = ['save_branding', 'save_mail', 'smtp_test', 'run_migrations', 'save_user', 'set_user_active', 'save_login_policy', 'unlock_user'];
+        $administratorActions = ['save_branding', 'save_mail', 'smtp_test', 'run_migrations', 'save_user', 'set_user_active', 'save_login_policy', 'unlock_user', 'regenerate_run_reports'];
         if (in_array($postAction, $administratorActions, true) && !Auth::isAdmin()) {
             throw new RuntimeException('Tu perfil no tiene permiso para realizar esta operación.');
         }
@@ -487,6 +630,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                     $userId,
                     (string) ($_POST['person_name'] ?? ''),
                     (string) ($_POST['username'] ?? ''),
+                    (string) ($_POST['email'] ?? ''),
                     (string) ($_POST['password'] ?? ''),
                     (string) ($_POST['role'] ?? 'nominista')
                 );
@@ -496,17 +640,27 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             case 'save_login_policy':
                 $maximumAttempts = filter_var($_POST['max_login_attempts'] ?? null, FILTER_VALIDATE_INT);
                 $lockoutMinutes = filter_var($_POST['lockout_minutes'] ?? null, FILTER_VALIDATE_INT);
+                $storedSecurity = $settings->get('security', []);
+                $storedSecurity = is_array($storedSecurity) ? $storedSecurity : [];
+                $fallbackSessionMinutes = max(0, (int) ($storedSecurity['session_idle_timeout_minutes'] ?? intdiv((int) Config::get('session_idle_timeout', 1800), 60)));
+                $sessionTimeoutMinutes = filter_var($_POST['session_idle_timeout_minutes'] ?? $fallbackSessionMinutes, FILTER_VALIDATE_INT);
                 if ($maximumAttempts === false || $maximumAttempts < 3 || $maximumAttempts > 20) {
                     throw new RuntimeException('Los intentos permitidos deben estar entre 3 y 20.');
                 }
                 if ($lockoutMinutes === false || $lockoutMinutes < 1 || $lockoutMinutes > 1440) {
                     throw new RuntimeException('Los minutos de bloqueo deben estar entre 1 y 1440.');
                 }
+                if ($sessionTimeoutMinutes === false || $sessionTimeoutMinutes < 0 || $sessionTimeoutMinutes > 10080) {
+                    throw new RuntimeException('La duración de sesión debe estar entre 0 y 10080 minutos.');
+                }
                 $settings->set('security', [
                     'max_login_attempts' => $maximumAttempts,
                     'lockout_minutes' => $lockoutMinutes,
+                    'session_idle_timeout_minutes' => $sessionTimeoutMinutes,
                 ]);
-                Html::flash('success', 'La política de bloqueo de acceso se actualizó correctamente.');
+                Html::flash('success', $sessionTimeoutMinutes === 0
+                    ? 'La política de acceso se actualizó. Las sesiones no vencerán por inactividad mientras el navegador permanezca abierto.'
+                    : 'La política de acceso se actualizó correctamente. Las sesiones vencerán tras ' . $sessionTimeoutMinutes . ' minutos de inactividad.');
                 Html::redirect('index.php?page=users');
 
             case 'unlock_user':
@@ -523,6 +677,14 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 $users->setActive($userId, $active, (int) (Auth::user()['id'] ?? 0));
                 Html::flash('success', $active ? 'Usuario activado.' : 'Usuario desactivado.');
                 Html::redirect('index.php?page=users');
+
+            case 'save_own_email':
+                $currentUserId = (int) (Auth::user()['id'] ?? 0);
+                $users->saveOwnEmail($currentUserId, (string) ($_POST['email'] ?? ''));
+                Html::flash('success', trim((string) ($_POST['email'] ?? '')) === ''
+                    ? 'Se eliminó el correo de tu cuenta. Ya no recibirás comprobantes de envíos masivos.'
+                    : 'El correo de tu cuenta se actualizó correctamente.');
+                Html::redirect('index.php?page=account');
 
             case 'change_own_password':
                 $currentUserId = (int) (Auth::user()['id'] ?? 0);
@@ -582,27 +744,56 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                     }
                     $newBranding[$key] = $value;
                 }
+
                 $previousBranding = $branding;
-                $settings->set('branding', $newBranding);
-                $savedSmtp = $settings->get('smtp', []);
-                if (is_array($savedSmtp) && trim((string) ($savedSmtp['from_name'] ?? '')) !== ''
-                    && strcasecmp(trim((string) $savedSmtp['from_name']), (string) ($previousBranding['company_name'] ?? '')) === 0) {
-                    $savedSmtp['from_name'] = $newBranding['company_name'];
-                    $settings->set('smtp', $savedSmtp);
+                $oldLogo = $previousBranding['logo_image'] ?? null;
+                $newLogo = null;
+                $logoMetadata = $oldLogo;
+                $logoUpload = $_FILES['brand_logo'] ?? null;
+                if (is_array($logoUpload) && (int) ($logoUpload['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
+                    $newLogo = BrandLogo::store($logoUpload, (string) Config::get('storage_private'));
+                    $logoMetadata = $newLogo;
+                } elseif (isset($_POST['remove_brand_logo'])) {
+                    $logoMetadata = null;
                 }
-                // Si el pie sigue siendo el valor de fábrica, convertirlo a una variable dinámica.
-                // Los pies personalizados por el usuario se conservan sin modificaciones.
-                $savedTemplate = $settings->template();
-                $legacyDefaultFooter = "Saludos,\n{{empresa}}\nControl de asistencia";
-                if (trim((string) ($savedTemplate['footer_template'] ?? '')) === $legacyDefaultFooter) {
-                    $settings->saveTemplate(
-                        (string) $savedTemplate['subject_template'],
-                        (string) $savedTemplate['body_template'],
-                        "Saludos,\n{{empresa}}\n{{aplicacion}}"
-                    );
+                $newBranding['logo_image'] = $logoMetadata;
+
+                try {
+                    $pdo->beginTransaction();
+                    $settings->set('branding', $newBranding);
+                    $savedSmtp = $settings->get('smtp', []);
+                    if (is_array($savedSmtp) && trim((string) ($savedSmtp['from_name'] ?? '')) !== ''
+                        && strcasecmp(trim((string) $savedSmtp['from_name']), (string) ($previousBranding['company_name'] ?? '')) === 0) {
+                        $savedSmtp['from_name'] = $newBranding['company_name'];
+                        $settings->set('smtp', $savedSmtp);
+                    }
+                    // Si el pie sigue siendo el valor de fábrica, convertirlo a una variable dinámica.
+                    // Los pies personalizados por el usuario se conservan sin modificaciones.
+                    $savedTemplate = $settings->template();
+                    $legacyDefaultFooter = "Saludos,\n{{empresa}}\nControl de asistencia";
+                    if (trim((string) ($savedTemplate['footer_template'] ?? '')) === $legacyDefaultFooter) {
+                        $settings->saveTemplate(
+                            (string) $savedTemplate['subject_template'],
+                            (string) $savedTemplate['body_template'],
+                            "Saludos,\n{{empresa}}\n{{aplicacion}}"
+                        );
+                    }
+                    $pdo->commit();
+                } catch (Throwable $saveException) {
+                    if ($pdo->inTransaction()) {
+                        $pdo->rollBack();
+                    }
+                    if ($newLogo !== null) {
+                        BrandLogo::delete($newLogo, (string) Config::get('storage_private'));
+                    }
+                    throw $saveException;
+                }
+
+                if ($oldLogo !== $logoMetadata) {
+                    BrandLogo::delete($oldLogo, (string) Config::get('storage_private'));
                 }
                 $branding = array_replace($brandingDefaults, $newBranding);
-                Html::flash('success', 'Identidad visual guardada. Se aplicará en el panel, acceso y correos nuevos.');
+                Html::flash('success', 'Identidad visual guardada. Se aplicará en el panel y el acceso.');
                 Html::redirect('index.php?page=branding');
 
             case 'save_mail':
@@ -711,6 +902,191 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 $deliveryFile = $reports->findDepartmentFileForDelivery((int) ($fileId ?: 0));
                 Html::redirect('index.php?page=history&run=' . rawurlencode((string) ($deliveryFile['run_id'] ?? '')));
 
+            case 'regenerate_run_reports':
+                set_time_limit(600);
+                $runId = strtolower(trim((string) ($_POST['run_id'] ?? '')));
+                if (preg_match('/^[a-f0-9]{32}$/', $runId) !== 1) {
+                    throw new InvalidArgumentException('La ejecución seleccionada no tiene un identificador válido.');
+                }
+                $run = $reports->findRun($runId);
+                if ($run === null) {
+                    throw new RuntimeException('No se encontró la ejecución que deseas regenerar.');
+                }
+                $sourceResolution = RunSourceResolver::resolve(
+                    $runId,
+                    (string) Config::get('storage_exports'),
+                    (string) Config::get('storage_uploads')
+                );
+                if ($sourceResolution === null) {
+                    throw new RuntimeException('No se encontró el XLSX original de esta ejecución. Se buscó la copia privada del reporte y la carga histórica asociada a su identificador.');
+                }
+                $runDirectory = $sourceResolution['run_directory'];
+                $sourcePath = $sourceResolution['path'];
+
+                // Evita que dos administradores regeneren la misma ejecución a la vez.
+                $regenerationLockPath = $runDirectory . DIRECTORY_SEPARATOR . '.regeneration.lock';
+                $regenerationLock = @fopen($regenerationLockPath, 'c+b');
+                if (!is_resource($regenerationLock) || !flock($regenerationLock, LOCK_EX | LOCK_NB)) {
+                    if (is_resource($regenerationLock)) {
+                        fclose($regenerationLock);
+                    }
+                    throw new RuntimeException('Esta ejecución ya se está regenerando. Espera a que termine y actualiza el historial.');
+                }
+
+                $generationDirectory = '';
+                $generationPersisted = false;
+                try {
+                    // Promueve la fuente histórica uploads/{runId}.xlsx a la carpeta de
+                    // ejecución para que futuras regeneraciones y respaldos usen la ruta canónica.
+                    if (($sourceResolution['storage'] ?? '') === 'uploads') {
+                        $canonicalSource = $runDirectory . DIRECTORY_SEPARATOR . 'source.xlsx';
+                        if (file_exists($canonicalSource) || is_link($canonicalSource)) {
+                            throw new RuntimeException('La carpeta de la ejecución ya contiene una ruta source.xlsx inesperada.');
+                        }
+                        $sourceCopyTemporary = $runDirectory . DIRECTORY_SEPARATOR . '.source-copy-' . bin2hex(random_bytes(8)) . '.tmp';
+                        try {
+                            if (!copy($sourcePath, $sourceCopyTemporary)) {
+                                throw new RuntimeException('No se pudo conservar el XLSX histórico dentro de la ejecución.');
+                            }
+                            $originalHash = hash_file('sha256', $sourcePath);
+                            $copyHash = hash_file('sha256', $sourceCopyTemporary);
+                            if (!is_string($originalHash) || !is_string($copyHash) || !hash_equals($originalHash, $copyHash)) {
+                                throw new RuntimeException('La copia del XLSX histórico no superó la verificación SHA-256.');
+                            }
+                            if (!rename($sourceCopyTemporary, $canonicalSource)) {
+                                throw new RuntimeException('No se pudo publicar la copia privada del XLSX histórico.');
+                            }
+                            @chmod($canonicalSource, 0600);
+                            $resolvedCanonicalSource = realpath($canonicalSource);
+                            if ($resolvedCanonicalSource === false
+                                || dirname($resolvedCanonicalSource) !== $runDirectory
+                                || !is_file($resolvedCanonicalSource)
+                                || !is_readable($resolvedCanonicalSource)) {
+                                throw new RuntimeException('La copia privada del XLSX histórico no quedó disponible.');
+                            }
+                            $sourcePath = $resolvedCanonicalSource;
+                        } finally {
+                            if (is_file($sourceCopyTemporary)) {
+                                @unlink($sourceCopyTemporary);
+                            }
+                        }
+                    }
+
+                    $generationName = 'regen-' . date('Ymd-His') . '-' . bin2hex(random_bytes(5));
+                    $generationDirectory = $runDirectory . DIRECTORY_SEPARATOR . $generationName;
+                    if (!mkdir($generationDirectory, 0700, true) && !is_dir($generationDirectory)) {
+                        throw new RuntimeException('No se pudo preparar el área temporal de regeneración.');
+                    }
+                    $logoForExcel = BrandLogo::resolve($branding['logo_image'] ?? null, (string) Config::get('storage_private'));
+                    $createdAt = strtotime((string) ($run['created_at'] ?? ''));
+                    $storedPresentation = [];
+                    $presentationMetadataPath = realpath($runDirectory . DIRECTORY_SEPARATOR . 'presentation.json');
+                    if ($presentationMetadataPath !== false
+                        && dirname($presentationMetadataPath) === $runDirectory
+                        && is_file($presentationMetadataPath)
+                        && is_readable($presentationMetadataPath)
+                        && (int) filesize($presentationMetadataPath) <= 16384) {
+                        $presentationMetadataJson = file_get_contents($presentationMetadataPath);
+                        $decodedPresentation = is_string($presentationMetadataJson) ? json_decode($presentationMetadataJson, true) : null;
+                        $storedPresentation = is_array($decodedPresentation) ? $decodedPresentation : [];
+                    }
+                    $storedAuthor = trim((string) ($storedPresentation['created_by'] ?? $run['created_by_name'] ?? 'Usuario no disponible'));
+                    $storedAuthor = preg_replace('/[\x00-\x1F\x7F]/u', '', $storedAuthor) ?? '';
+                    $storedDate = trim((string) ($storedPresentation['generated_on'] ?? ''));
+                    if (preg_match('/^\d{2}\/\d{2}\/\d{4}$/', $storedDate) !== 1) {
+                        $storedDate = $createdAt !== false ? date('d/m/Y', $createdAt) : date('d/m/Y');
+                    }
+                    $presentation = [
+                        'created_by' => $storedAuthor !== '' ? substr($storedAuthor, 0, 120) : 'Usuario no disponible',
+                        'generated_on' => $storedDate,
+                        'logo' => $logoForExcel === null ? null : [
+                            'path' => $logoForExcel['path'],
+                            'mime' => $logoForExcel['mime'],
+                            'filename' => $logoForExcel['filename'],
+                        ],
+                    ];
+                    $splitter = new DepartmentSplitter($departments);
+                    $result = $splitter->split($sourcePath, $generationDirectory, $presentation);
+                    $replacementFiles = [];
+                    foreach ($result['files'] as $file) {
+                        $recipients = $departments->deliveryRecipients((int) $file['department_id']);
+                        $isEnabledForDelivery = !empty($file['department_enabled']) && empty($file['needs_configuration']);
+                        $deliveryStatus = !$isEnabledForDelivery
+                            ? 'disabled'
+                            : ($recipients === [] ? 'no_recipients' : 'not_requested');
+                        $relativeInGeneration = substr($file['absolute_path'], strlen($generationDirectory . DIRECTORY_SEPARATOR));
+                        if ($relativeInGeneration === '' || str_starts_with($relativeInGeneration, '..')) {
+                            throw new RuntimeException('La regeneración produjo una ruta de archivo inesperada.');
+                        }
+                        $relativeInGeneration = str_replace(DIRECTORY_SEPARATOR, '/', $relativeInGeneration);
+                        $replacementFiles[] = [
+                            'department_id' => $file['department_id'],
+                            'report_label' => $file['report_label'],
+                            'department_name' => $file['department_name'],
+                            'file_name' => $file['file_name'],
+                            'relative_path' => $runId . '/' . $generationName . '/' . $relativeInGeneration,
+                            'recipients' => $recipients,
+                            'delivery_status' => $deliveryStatus,
+                        ];
+                    }
+                    $relativeArchivePath = $runId . '/' . $generationName . '/' . $result['zip_name'];
+                    $oldOutputPaths = $reports->replaceRunOutputs($runId, [
+                        'archive_name' => $result['zip_name'],
+                        'archive_path' => $relativeArchivePath,
+                        'week' => implode(', ', $result['weeks']),
+                        'year' => $result['iso_year'],
+                        'start_date' => $result['start_date'],
+                        'end_date' => $result['end_date'],
+                    ], $replacementFiles);
+                    $generationPersisted = true;
+
+                    $removePreviousOutput = static function (string $relativePath) use ($exportsRoot, $runDirectory): void {
+                        $relativePath = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, trim($relativePath));
+                        if ($relativePath === '' || str_contains($relativePath, '..')) {
+                            return;
+                        }
+                        $candidate = $exportsRoot . DIRECTORY_SEPARATOR . $relativePath;
+                        $resolved = realpath($candidate);
+                        if ($resolved === false || !str_starts_with($resolved, rtrim($runDirectory, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR) || !is_file($resolved)) {
+                            return;
+                        }
+                        @unlink($resolved);
+                        $directory = dirname($resolved);
+                        while ($directory !== $runDirectory
+                            && str_starts_with($directory, rtrim($runDirectory, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR)
+                            && is_dir($directory)) {
+                            $entries = scandir($directory);
+                            if (!is_array($entries) || count($entries) > 2) {
+                                break;
+                            }
+                            @rmdir($directory);
+                            $directory = dirname($directory);
+                        }
+                    };
+                    $pathsToRemove = array_merge(
+                        [$oldOutputPaths['archive_path'] ?? ''],
+                        $oldOutputPaths['department_paths'] ?? []
+                    );
+                    foreach (array_unique($pathsToRemove) as $oldPath) {
+                        $removePreviousOutput((string) $oldPath);
+                    }
+
+                    $regenerationMessage = 'Reporte regenerado correctamente: ' . count($replacementFiles) . ' Excel y el ZIP general fueron reemplazados. Se conservó la auditoría de correos anteriores; los archivos nuevos están disponibles para descargar y reenviar.';
+                    if ($logoForExcel !== null && (int) ($result['logo_embedded_count'] ?? 0) < count($replacementFiles)) {
+                        $regenerationMessage .= ' El logotipo WebP no se pudo convertir porque falta GD; los Excel se generaron sin imagen. Carga el logo en PNG, JPG o GIF para incrustarlo.';
+                    }
+                    Html::flash('success', $regenerationMessage);
+                    Html::redirect('index.php?page=history&run=' . rawurlencode($runId));
+                } catch (Throwable $regenerationException) {
+                    if (!$generationPersisted && $generationDirectory !== '') {
+                        DepartmentSplitter::removeDirectory($generationDirectory);
+                    }
+                    throw $regenerationException;
+                } finally {
+                    @flock($regenerationLock, LOCK_UN);
+                    fclose($regenerationLock);
+                }
+
             case 'process_report':
                 set_time_limit(300);
                 if (!isset($_FILES['report']) || !is_array($_FILES['report'])) {
@@ -741,10 +1117,38 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                     DepartmentSplitter::removeDirectory($runDirectory);
                     throw new RuntimeException('No se pudo mover el reporte al almacenamiento temporal privado.');
                 }
+                $sourcePath = $runDirectory . DIRECTORY_SEPARATOR . 'source.xlsx';
+                if (!copy($uploadedPath, $sourcePath)) {
+                    @unlink($uploadedPath);
+                    DepartmentSplitter::removeDirectory($runDirectory);
+                    throw new RuntimeException('No se pudo conservar una copia privada del XLSX original para regeneraciones futuras.');
+                }
+                @chmod($sourcePath, 0600);
                 $runPersisted = false;
                 try {
+                    $currentUser = Auth::user() ?? [];
+                    $logoForExcel = BrandLogo::resolve($branding['logo_image'] ?? null, (string) Config::get('storage_private'));
+                    $presentation = [
+                        'created_by' => trim((string) ($currentUser['name'] ?? $currentUser['username'] ?? '')),
+                        'generated_on' => date('d/m/Y'),
+                        'logo' => $logoForExcel === null ? null : [
+                            'path' => $logoForExcel['path'],
+                            'mime' => $logoForExcel['mime'],
+                            'filename' => $logoForExcel['filename'],
+                        ],
+                    ];
+                    $presentationMetadata = json_encode([
+                        'created_by' => $presentation['created_by'],
+                        'generated_on' => $presentation['generated_on'],
+                    ], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+                    $presentationMetadataPath = $runDirectory . DIRECTORY_SEPARATOR . 'presentation.json';
+                    $metadataBytes = file_put_contents($presentationMetadataPath, $presentationMetadata, LOCK_EX);
+                    if ($metadataBytes !== strlen($presentationMetadata)) {
+                        throw new RuntimeException('No se pudo guardar la autoría original del reporte para futuras regeneraciones.');
+                    }
+                    @chmod($presentationMetadataPath, 0600);
                     $splitter = new DepartmentSplitter($departments);
-                    $result = $splitter->split($uploadedPath, $runDirectory);
+                    $result = $splitter->split($sourcePath, $runDirectory, $presentation);
                     $sendEmails = false; // Los correos se envían manualmente desde el historial.
                     $fileRows = [];
                     foreach ($result['files'] as $file) {
@@ -833,9 +1237,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                         static fn (array $file): string => (string) $file['report_label'],
                         array_filter($result['files'], static fn (array $file): bool => !empty($file['newly_discovered']))
                     )));
-                    $flashMessage = 'Reporte procesado: ' . count($fileRows) . ' archivos Excel generados. ' . ($sendEmails ? 'Se ejecutó el envío por departamento.' : 'Puedes enviar los reportes por correo desde el historial cuando lo necesites.');
+                    $flashMessage = 'Reporte procesado: ' . count($fileRows) . ' archivos Excel generados. ' . ($sendEmails ? 'Se ejecutó el envío por departamento.' : 'Puedes enviar los reportes por correo desde el historial cuando lo necesites.') . ' El XLSX original se conserva de forma privada para futuras regeneraciones.';
                     if ($newDepartmentNames !== []) {
                         $flashMessage .= ' Se detectaron y agregaron al catálogo como pendientes de configuración: ' . implode(', ', $newDepartmentNames) . '. No se enviarán hasta que los habilites y configures.';
+                    }
+                    if ($logoForExcel !== null && (int) ($result['logo_embedded_count'] ?? 0) < count($fileRows)) {
+                        $flashMessage .= ' El logotipo WebP no se pudo convertir porque falta GD; los Excel se generaron sin imagen. Carga el logo en PNG, JPG o GIF para incrustarlo.';
                     }
                     Html::flash('success', $flashMessage);
                     Html::redirect('index.php?page=history&run=' . rawurlencode($runId));
@@ -884,9 +1291,25 @@ $pageTitle = match ($page) {
 };
 $user = Auth::user() ?? [];
 $schemaCurrent = (int) $migrationStatus['current'];
+$accountUser = $schemaCurrent >= Version::LOCKOUT_SCHEMA && (int) ($user['id'] ?? 0) > 0
+    ? ($users->find((int) $user['id']) ?? $user)
+    : $user;
 $stats = $schemaCurrent >= Version::SCHEMA_TARGET ? $reports->stats() : ['runs' => 0, 'departments' => 0, 'sent' => 0, 'pending_recipients' => 0, 'pending_configuration' => 0];
 $recentRuns = $schemaCurrent >= Version::SCHEMA_TARGET ? $reports->all(8) : [];
 $departmentRows = $schemaCurrent >= 2 ? $departments->all(true) : [];
+if ($page === 'departments') {
+    $recipientsByDepartment = $departments->recipientsByDepartmentIds(array_map(
+        static fn (array $row): int => (int) $row['id'],
+        $departmentRows
+    ));
+    foreach ($departmentRows as &$departmentRow) {
+        $departmentRow['recipient_emails_json'] = json_encode(
+            $recipientsByDepartment[(int) $departmentRow['id']] ?? [],
+            JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP
+        ) ?: '[]';
+    }
+    unset($departmentRow);
+}
 $smtp = $settings->get('smtp', []);
 $smtp = is_array($smtp) ? $smtp : [];
 $signaturePreview = SignatureImage::resolve($smtp['signature_image'] ?? null, (string) Config::get('storage_private'));
@@ -898,9 +1321,18 @@ $securitySettings = is_array($securitySettings) ? $securitySettings : [];
 $loginPolicy = [
     'max_login_attempts' => max(3, min(20, (int) ($securitySettings['max_login_attempts'] ?? 5))),
     'lockout_minutes' => max(1, min(1440, (int) ($securitySettings['lockout_minutes'] ?? 10))),
+    'session_idle_timeout_minutes' => max(0, min(10080, (int) ($securitySettings['session_idle_timeout_minutes'] ?? max(0, intdiv((int) Config::get('session_idle_timeout', 1800), 60))))),
 ];
 $editingUser = $schemaCurrent >= Version::SCHEMA_TARGET && Auth::isAdmin() && isset($_GET['edit_user']) ? $users->find((int) $_GET['edit_user']) : null;
 $selectedRun = $schemaCurrent >= Version::SCHEMA_TARGET && isset($_GET['run']) ? $reports->findRun((string) $_GET['run']) : null;
+$selectedRunSourceAvailable = false;
+if ($selectedRun !== null && Auth::isAdmin()) {
+    $selectedRunSourceAvailable = RunSourceResolver::resolve(
+        (string) $selectedRun['id'],
+        (string) Config::get('storage_exports'),
+        (string) Config::get('storage_uploads')
+    ) !== null;
+}
 $selectedFiles = $selectedRun ? $reports->departmentFiles((string) $selectedRun['id']) : [];
 foreach ($selectedFiles as &$selectedFile) {
     $departmentId = (int) ($selectedFile['department_id'] ?? 0);

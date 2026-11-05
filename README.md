@@ -1,6 +1,8 @@
-# ZKTimeNet Personal Framework 1.2.19 — sin Composer
+# ZKTimeNet Personal Framework 1.2.31 — IIS / sin Composer
 
-Aplicación interna para Nóminas que procesa el reporte XLSX de ZKTimeNet, separa los registros por departamento, genera Excel individuales y un ZIP general, y opcionalmente distribuye cada Excel por correo.
+Aplicación interna para Nóminas que procesa el reporte XLSX de ZKTimeNet, separa los registros por departamento, genera Excel individuales y un ZIP general, y opcionalmente distribuye cada Excel por correo. Incluye identidad visual configurable con carga segura del logotipo de la empresa, plantillas Excel actualizadas y regeneración de reportes desde el XLSX original privado.
+
+La versión 1.2.31 compacta el panel de control, alinea la altura de tarjetas en las cuadrículas principales y ordena el menú de Operación como Cargar reporte, Historial y Resumen. SQLite permanece en esquema 6; no requiere migración.
 
 ## Plataforma
 
@@ -14,36 +16,41 @@ Aplicación interna para Nóminas que procesa el reporte XLSX de ZKTimeNet, sepa
 
 Abre `install.php` o la raíz del sitio. El asistente detecta el sistema operativo, servidor web, interfaz PHP y extensiones; permite confirmar la ubicación de datos fuera del DocumentRoot y solicita el nombre visible y la contraseña inicial del administrador. Si `ZKTIME_DATA_DIR` está definido, esa ruta tiene prioridad. Sin variable de entorno, la ruta elegida se conserva en `config/local.php`, archivo que solo contiene la ubicación de datos y está protegido contra acceso HTTP.
 
-La primera instalación crea `app.key`, SQLite y las migraciones 001–005. La aplicación utiliza el esquema 5; 1.2.19 amplía el contenido a ancho completo en todas las pantallas autenticadas; conserva el bloqueo persistente de cuentas e invalidación de sesiones. Consulta `INSTALL.md` para preparar permisos de IIS, configurar el límite de restauración y conocer el flujo de respaldo/recuperación.
+La primera instalación crea `app.key`, SQLite y aplica las migraciones 001–006. La aplicación utiliza el esquema 6. La versión 1.2.25 agrega un primer ajuste al contraste del encabezado y renombra la acción ZIP como **Descargar ZIP** y envía un comprobante al correo de la persona que inició cada distribución masiva. La versión 1.2.26 mantiene un mensaje genérico y estable cuando hay actualizaciones pendientes, sin enumerar novedades de migraciones. La versión 1.2.27 mejora globalmente el contraste y los estados hover/foco de los controles del tema claro, sin cambiar el tema oscuro ni el esquema SQLite. La versión 1.2.28 permite configurar en Administración → Usuarios la duración global de sesión por inactividad (30 minutos predeterminados; 0 desactiva el vencimiento por inactividad mientras el navegador siga abierto), sin migración; se conserva la cookie de sesión y la revocación de sesiones por cambios de seguridad. La versión 1.2.29 muestra la lista de usuarios a ancho completo y concentra alta/edición en un modal accesible; además reorganiza en tres columnas la política de acceso y duración de sesión sin cambiar datos ni esquema. El campo de correo de usuario ya existía en SQLite y ahora se administra desde Usuarios o Mi cuenta. La versión 1.2.30 aplica el mismo patrón modal de alta/edición al catálogo de departamentos; la lista ocupa el ancho completo y se conservan todos los campos, destinatarios y reglas existentes, sin migración. Se conserva el bloqueo persistente de cuentas e invalidación de sesiones. La versión 1.2.31 compacta el dashboard, iguala la altura de tarjetas en las cuadrículas principales y coloca Historial encima de Resumen en el menú lateral. Consulta `INSTALL.md` para preparar permisos de IIS, migrar instalaciones y conocer el flujo de respaldo/recuperación.
 
 ## Funciones
 
 - Carga del reporte desde `index.php`.
 - Separación de departamentos, descarga ZIP e historial.
+- Excel departamentales con título **Reporte de asistencia**, semana ISO y periodo calculado, pie con usuario/fecha de la ejecución y logotipo de empresa opcional.
+- Regeneración administrativa desde el historial usando el XLSX original conservado en almacenamiento privado; admite tanto `exports/{runId}/source.xlsx` como cargas históricas `uploads/{runId}.xlsx` asociadas por identificador. Reemplaza los Excel/ZIP vigentes y mantiene los intentos históricos de correo. El cleanup protege los originales vinculados a ejecuciones registradas y solo elimina cargas huérfanas.
 - Catálogo de departamentos y destinatarios.
 - SMTP configurable, plantillas, imagen de firma incrustada y envíos individuales.
+- Envío masivo secuencial con progreso por departamento y comprobante final para el usuario que inició la operación (correos aceptados por SMTP, fallidos con motivo y departamentos omitidos).
 - Temas claro, oscuro y automático.
-- Configuración de identidad visual desde **Configuración → Identidad visual**.
+- Configuración de identidad visual desde **Configuración → Identidad visual**, incluida la carga, reemplazo y eliminación del logotipo raster de la empresa; el logo también se incrusta en los Excel departamentales nuevos y regenerados cuando está configurado.
 - Enviar por primera vez o reenviar el Excel de un departamento desde el detalle del historial, con auditoría por intento.
-- Actualizaciones de esquema versionadas, autenticación individual y permisos por perfil.
+- Actualizaciones de esquema versionadas (actualmente esquema 6), autenticación individual y permisos por perfil.
+- Correo de notificación opcional por usuario, editable desde Administración → Usuarios o Mi cuenta.
 - Bloqueo persistente configurable por intentos fallidos (5 intentos y 10 minutos predeterminados), con desbloqueo administrativo e invalidación de sesiones anteriores.
 - Respaldo completo ZIP con fecha/hora, rutas físicas agrupadas por datos y archivos del sitio, diagnóstico del servidor junto al estado y restauración validada con respaldo de reversión automático.
 - Todas las pantallas autenticadas aprovechan el ancho completo disponible, con márgenes responsivos en tabletas y móviles.
 - Ayuda contextual en el menú lateral con guía breve adaptada al rol del usuario.
+- Confirmaciones en modales propios del sistema y estado visual con desenfoque/spinner para operaciones largas; el envío masivo conserva el progreso por departamento.
 
 ## Identidad visual configurable
 
 Desde la pantalla Identidad visual se administran:
 
 - Nombre de empresa.
-- Texto/siglas del logotipo.
+- Imagen de logotipo PNG/JPG/GIF/WebP (opcional) y texto/siglas de respaldo.
 - Lema o descripción.
 - Etiqueta de plataforma (por ejemplo, `PLATAFORMA INTERNA`).
 - Nombre del módulo (por ejemplo, `NÓMINAS`).
 - Nombre de la aplicación.
 - Texto del pie de página.
 
-Los valores se guardan en SQLite y se muestran en navegación, encabezado, pantalla de acceso, pie de página y mensajes nuevos. Las plantillas admiten `{{empresa}}`, `{{aplicacion}}`, `{{plataforma}}` y `{{lema}}`, además de las variables de departamento/periodo/archivo.
+Los valores se guardan en SQLite y se muestran en navegación, encabezado, pantalla de acceso, pie de página, mensajes nuevos y reportes Excel generados. La imagen se guarda en el directorio privado; Excel incrusta PNG/JPG/GIF y convierte WebP si GD está disponible. Las plantillas admiten `{{empresa}}`, `{{aplicacion}}`, `{{plataforma}}` y `{{lema}}`, además de las variables de departamento/periodo/archivo.
 
 ## Reply-To múltiple (1.0.8)
 
@@ -99,7 +106,7 @@ En el detalle de una ejecución, **Enviar a todos** inicia manualmente el envío
 
 ## Retención permanente de reportes (1.1.2)
 
-Los Excel por departamento y el ZIP general permanecen en el directorio privado hasta que el administrador los retire mediante mantenimiento explícito del almacenamiento. `php bin/zknet cleanup` no los elimina: únicamente limpia cargas XLSX temporales huérfanas después de un día por defecto. El archivo XLSX original recibido por el formulario se elimina tras procesarlo; se conservan las exportaciones individuales y el ZIP.
+Los Excel por departamento y el ZIP general permanecen en el directorio privado hasta que el administrador los retire mediante mantenimiento explícito del almacenamiento. `php bin/zknet cleanup` no los elimina: únicamente limpia cargas XLSX temporales huérfanas después de un día por defecto. El XLSX original se conserva como `exports/{runId}/source.xlsx` dentro del almacenamiento privado para permitir la regeneración posterior; la copia temporal de carga sí se elimina al terminar. También se conserva `presentation.json` con el nombre de la persona y la fecha originales para que el pie no cambie al regenerar. Estos archivos se incluyen en los respaldos completos.
 
 
 ## Pantalla principal simplificada (1.1.2)
@@ -123,7 +130,7 @@ Los detalles técnicos (versión de aplicación, versión de PHP y extensiones r
 
 El acceso es individual mediante **nombre de usuario y contraseña**. En instalaciones nuevas, el asistente `install.php` crea la cuenta inicial `administrador` y solicita su contraseña; no existe una credencial administrativa predeterminada ni un hash de administrador en el código. El hash se guarda en SQLite mediante `password_hash()`.
 
-Las instalaciones existentes con esquema 3 o 4 conservan sus usuarios y contraseñas y aplican la migración 005 desde Actualizaciones; las instalaciones en esquema 5 ya están actualizadas. Las instalaciones históricas con esquema 1 o 2 pasan por un asistente de transición que crea un respaldo y solicita establecer una nueva contraseña administrativa, porque se elimina el hash predefinido antiguo. Desde **Administración → Usuarios**, únicamente el perfil Administrador puede crear, editar, activar y desactivar cuentas. Para desactivar se conserva el registro y su historial de autoría; la aplicación impide desactivar al último administrador activo.
+Las instalaciones existentes en esquemas 3, 4 o 5 conservan sus usuarios y contraseñas y aplican las migraciones pendientes desde Actualizaciones; el esquema 5 aplica la 006 para asociar eventos a envíos masivos. Las instalaciones históricas con esquema 1 o 2 pasan por un asistente de transición que crea un respaldo y solicita establecer una nueva contraseña administrativa, porque se elimina el hash predefinido antiguo. Desde **Administración → Usuarios**, únicamente el perfil Administrador puede crear, editar, activar y desactivar cuentas. Para desactivar se conserva el registro y su historial de autoría; la aplicación impide desactivar al último administrador activo.
 
 **Administrador** conserva todas las funciones: Operación, Departamentos, Correo y plantillas, Identidad visual, Usuarios y Actualizaciones. **Nominista** solo puede acceder a Operación (Procesar reporte, Resumen e Historial), Configuración → Departamentos y **Mi cuenta** para cambiar su propia contraseña. Las restricciones se aplican tanto a la navegación como a las acciones POST del servidor.
 

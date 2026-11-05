@@ -1,3 +1,119 @@
+## 1.2.31 — Dashboard compacto y consistencia de tarjetas
+
+- El panel de control reduce el espacio vertical de las tarjetas métricas y de los paneles de orientación/configuración, manteniendo los textos, métricas y acciones. Se ajustan padding, gaps, iconos y tabla de actividad reciente.
+- Se establece alineación `stretch` para las cuadrículas principales de tarjetas y paneles en las distintas pantallas (carga, resumen, cuenta, identidad visual, correo, mantenimiento y bloques de diagnóstico), anulando excepciones anteriores que dejaban paneles desiguales.
+- El menú lateral cambia el orden de Operación a **Cargar reporte → Historial → Resumen**.
+- Se agrega `tests/card-grid-consistency-smoke.js` para proteger el orden del menú, la alineación global y la densidad compacta del dashboard.
+- No se modifica lógica funcional, almacenamiento, configuración, autenticación ni el esquema SQLite 6. No requiere migraciones.
+
+### Validación 1.2.31
+- Node.js 22.16.0: 35/35 pruebas JavaScript aprobadas.
+- PHP CLI 8.4.24: sintaxis aprobada en 63 archivos PHP y `bin/zknet`.
+- Pruebas PHP: 9 aprobadas; 4 omitidas por falta de PDO_SQLite/ZIP o por requerir PHP 8.5. No se afirma validación funcional integrada en IIS/PHP 8.5/8.6.
+- No se realizaron operaciones remotas en GitHub.
+
+## 1.2.30 — Catálogo de departamentos en modal
+
+- **Configuración → Departamentos** ahora muestra el catálogo a todo el ancho disponible. El formulario lateral se retira para dar espacio a la lista y sus acciones.
+- **Agregar departamento** y **Editar** abren un único modal reutilizable, siguiendo el mismo patrón accesible de Gestión de usuarios. Incluye cierre con botón, Escape y clic en el fondo, restauración del foco y contención del foco con Tab.
+- El modal conserva los campos y el endpoint `save_department`: etiqueta de origen ZKTimeNet, nombre visible, responsable, lista de destinatarios, orden y habilitación de correo. Mantiene las validaciones, transacción del repositorio, CSRF y capa visual de procesamiento.
+- En edición se precargan todos los destinatarios almacenados, incluidos los que pudieran estar deshabilitados, además del estado habilitado y posición. Los departamentos descubiertos automáticamente conservan su advertencia de configuración pendiente hasta guardar.
+- Se mantiene la acción de eliminación con su confirmación existente. No se cambia la lógica de distribución, el comportamiento de responsables, las salidas históricas ni el esquema SQLite 6; no requiere migración.
+
+### Validación 1.2.30
+- Node.js 22.16.0: 34/34 pruebas JavaScript aprobadas; `tests/department-modal-smoke.js` verifica campos, precarga segura de destinatarios, endpoint original, accesibilidad, apertura de edición heredada y diseño responsive.
+- PHP CLI 8.4.24: sintaxis aprobada en 63 archivos PHP y `bin/zknet`. Se añade únicamente un método de lectura por lotes en `DepartmentRepository` para cargar los destinatarios de todas las filas sin consultas individuales.
+- Pruebas PHP: 9 aprobadas y 4 omitidas (`account-lockout-smoke.php`, `configuration-backup-smoke.php`, `installation-state-smoke.php`, `smoke.php`) por falta de PDO_SQLite/ZIP o requerimiento de PHP 8.5. Chromium headless no terminó de iniciar; queda pendiente la aceptación visual en IIS. No se declara validación integrada en PHP 8.5/8.6.
+- Se actualizan los identificadores de caché de los recursos y el manifiesto SHA-256. No se realizan operaciones remotas en GitHub.
+
+## 1.2.29 — Gestión de usuarios en modal y política de sesión equilibrada
+
+- La lista de usuarios ocupa ahora todo el ancho de la pantalla. **Agregar usuario** y **Editar** abren un único modal reutilizable, por lo que el formulario deja de reducir el espacio de la tabla.
+- El modal permite crear y editar cuentas con los mismos campos y conserva el endpoint `save_user`, sus validaciones, permisos administrativos y protección CSRF. Al editar precarga persona, usuario, correo y perfil; la contraseña sigue siendo opcional y vacía conserva la actual.
+- El modal incluye cierre mediante botón, Escape y clic sobre el fondo, devuelve el foco al control que lo abrió y mantiene el foco dentro del diálogo al navegar con Tab. Al guardar muestra la capa de procesamiento existente.
+- La política de acceso y duración de sesión ahora distribuye sus tres campos en columnas de igual proporción. El botón **Guardar política** ocupa una fila propia alineada a la derecha; en tableta usa dos columnas y en móvil una.
+- No se modifican las reglas de negocio, la autenticación ni los valores de la política. SQLite permanece en esquema 6; no se agrega migración ni se alteran datos.
+
+### Validación 1.2.29
+- Node.js 22.16.0: 33/33 pruebas JavaScript aprobadas, incluida `user-modal-smoke.js`.
+- PHP CLI 8.4.24: sintaxis aprobada en los 63 archivos PHP y `bin/zknet`.
+- La prueba real `session-timeout-smoke.php` y las demás pruebas PHP que no requieren extensiones ausentes pasan. Se omiten las pruebas que requieren `pdo_sqlite`, `zip`, `dom` o PHP 8.5; no se declara una validación integrada IIS/PHP 8.5/8.6.
+- La inspección gráfica automática con Chromium no pudo completarse en el entorno; la regresión cubre la estructura modal, teclado, anchos y breakpoints mediante pruebas de contrato.
+- El manifiesto SHA-256 se recalcula para todos los archivos del paquete. No se realizaron operaciones remotas en GitHub.
+
+## 1.2.28 — Duración de sesión configurable
+
+- **Administración → Usuarios → Protección de cuentas** incorpora la duración global por inactividad, expresada en minutos y aplicada a todos los usuarios. El valor inicial conserva el comportamiento anterior de 30 minutos; se admiten valores de 0 a 10,080 minutos (7 días).
+- El valor `0` desactiva el cierre por inactividad mientras el navegador permanezca abierto. La cookie sigue siendo de sesión (`lifetime = 0`) y termina al cerrar el navegador; continúan funcionando la revocación por cambio de contraseña, rol, estado, bloqueo y restauración.
+- La política se guarda dentro del ajuste `security` ya existente en SQLite. No requiere migración ni modifica el esquema 6. Los ajustes de instalaciones existentes sin el nuevo parámetro conservan 30 minutos automáticamente.
+- `bootstrap.php` carga la política persistida antes de iniciar PHP Session. `Session::start()` aplica el umbral en cada petición y ajusta `session.gc_maxlifetime`; el valor 0 usa retención muy amplia para impedir que el recolector normal elimine la sesión por inactividad.
+- El panel valida 0–10,080 minutos, mantiene la acción protegida para Administradores y aclara que la política es global. Con `0`, los archivos de sesión abandonados se retienen durante un periodo muy amplio; conviene reservar esta opción para equipos controlados.
+- Se agregan pruebas estáticas y una prueba PHP con sesiones reales para verificar expiración al superar el umbral y conservación cuando el valor es 0.
+
+## 1.2.27 — Contraste completo de controles en tema claro
+
+- Se amplía la revisión visual a todas las pantallas: botones secundarios, acciones de peligro, selector de tema, salida, menú móvil, acciones de edición/cierre, botones de variables, tarjetas de selección y controles de carga.
+- Los botones `btn-outline`, `btn-quiet`, `btn-danger-quiet` y `btn-white` ahora tienen rellenos y bordes con mayor contraste, además de estados hover definidos. Los botones primarios, destructivos y de envío masivo conservan sus colores de acción.
+- Se hacen más visibles los controles de icono (`filename-edit-button`, `help-modal-close`, `alert-close` y `mobile-menu`), el acceso a **Mi cuenta** y las acciones de navegación lateral y se mejora la visibilidad del selector de archivos y de la zona de carga.
+- Se incorpora un indicador `:focus-visible` consistente para operar con teclado y se distingue visualmente el estado deshabilitado. El tema oscuro no recibe cambios.
+- Se agrega una prueba de regresión que comprueba la cobertura de clases de acción utilizadas por las vistas y los estilos específicos del tema claro.
+- No se modifica el esquema SQLite (permanece en 6), las rutas de almacenamiento ni la lógica de negocio.
+
+## 1.2.26 — Mensaje estable de actualización pendiente
+
+- La advertencia de **Sistema → Actualizaciones** deja de describir cambios de una migración concreta. Cuando existen migraciones pendientes, siempre muestra el mismo texto: **Hay actualizaciones pendientes. Se creará un respaldo SQLite antes de ejecutar los cambios.** La actualización es obligatoria para poder seguir usando la plataforma.
+- Se conservan los indicadores separados de esquema actual/objetivo y cantidad de migraciones pendientes; el aviso no anuncia novedades ni puede quedar desfasado respecto al número de migración.
+- No se modifica el esquema SQLite ni se agrega una migración. El esquema objetivo permanece en 6.
+- Se agrega una aserción de regresión para impedir que el aviso vuelva a incluir descripciones de migraciones.
+
+## 1.2.25 — Comprobantes de envío masivo y ajustes visuales
+
+- El tema claro da mayor contraste al selector de tema y al botón Salir del encabezado, mediante un relleno más oscuro, borde definido y estado hover/foco visible.
+- En el historial, la acción ZIP ahora se muestra como **Descargar ZIP**.
+- Se habilita el correo de notificación de cada usuario en Administración → Usuarios y en Mi cuenta. El campo `users.email` ya existía desde la migración inicial; no se duplica ni se altera.
+- Se añade la migración SQLite `006_bulk_mail_batches.php` (esquema 6) para asociar cada evento de correo a un lote masivo concreto y registrar el estado del comprobante.
+- Al finalizar la distribución masiva, se genera un comprobante HTML y texto al correo del usuario que inició la operación. Incluye departamento, destinatarios aceptados por SMTP, destinatarios fallidos con motivo, omisiones y totales. No adjunta el ZIP ni los Excel.
+- Si el usuario no configuró correo, los resultados igualmente quedan auditados y el modal indica cómo agregarlo en Mi cuenta. Si falla el correo del comprobante, el modal informa que el envío departamental quedó registrado pero el comprobante no pudo enviarse.
+- El recibo aclara que aceptación SMTP no garantiza entrega final ni lectura. Las direcciones y motivos se escapan para HTML; el resumen se genera exclusivamente con eventos asociados al lote.
+- Se agregan pruebas de regresión del comprobante, del flujo de lote, del campo de correo y del esquema 6.
+
+## 1.2.24 — Confirmaciones y estado visual de operaciones
+
+- Sustituye las confirmaciones nativas del navegador por un modal común, con título, texto, botones de cancelar/aceptar, cierre con Escape y estilo de acción destructiva.
+- Las confirmaciones se procesan antes de enviar el formulario; cancelar no ejecuta ninguna petición. Al aceptar, se usa `requestSubmit()` para conservar validación HTML y el botón de origen.
+- Se incorpora una capa global de operación con fondo oscurecido y desenfoque, spinner y barra animada indeterminada para que el usuario identifique tareas prolongadas.
+- La capa aparece durante el procesamiento del XLSX, regeneración de reportes, envío individual, prueba SMTP, restauración y migraciones. El modal de envío masivo conserva su progreso por departamento y su desenfoque propio.
+- El overlay se restablece al cargar/volver a la página y no se aplica a descargas de archivos, para evitar dejar la interfaz bloqueada cuando el navegador comienza una descarga.
+- Se agrega `tests/operation-feedback-smoke.js`. No cambia la lógica de operaciones ni el esquema SQLite 5.
+
+## 1.2.23 — Corrección al incrustar el logotipo durante regeneración
+
+- Corrige el error `Undefined constant ZipArchive::RDWR` al regenerar reportes con identidad visual configurada.
+- `DepartmentSplitter::embedBrandLogo()` abre el XLSX existente con `ZipArchive::open($xlsxPath)` sin flags; ese es el modo de lectura/escritura predeterminado.
+- Se añade una aserción de regresión a `tests/report-regeneration-smoke.js` para impedir que vuelva a introducirse la constante inexistente.
+- No cambia el esquema SQLite, el mecanismo de relación `uploads/{runId}.xlsx` / `exports/{runId}`, la auditoría de correo ni el proceso de regeneración.
+
+## 1.2.22 — Plantillas Excel de asistencia y regeneración de reportes
+
+- Los Excel individuales ahora muestran el título **Reporte de asistencia** y debajo la semana ISO junto con el rango de fechas calculado desde el propio XLSX.
+- Cada hoja agrega al pie **Realizado por** y **Generado**, usando la persona y la fecha registradas en la ejecución. Se conserva una fila de separación y no se alteran los datos de asistencia. La línea de semana queda en la fila 3, debajo del título y sin invadir el espacio reservado al logo.
+- Cuando hay un logotipo configurado en Identidad visual, se incrusta en tamaño pequeño dentro del espacio superior izquierdo, con límite de 160 × 44 px de cada Excel departamental, sin tapar título ni subtítulo. Si no hay logo, el reporte conserva su presentación anterior. Se validan contenido, MIME, tamaño y dimensiones; WebP se convierte con GD cuando está disponible; si no, los Excel se generan sin imagen y se muestra un aviso. Para incrustarlo siempre, usa PNG/JPG/GIF.
+- Las nuevas ejecuciones conservan una copia privada `source.xlsx` y un `presentation.json` con autor/fecha originales para permitir regeneraciones posteriores y mantener el pie estable.
+- **Compatibilidad con ejecuciones anteriores:** el sistema también busca el original histórico en `uploads/{runId}.xlsx`, usando el mismo identificador que la carpeta `exports/{runId}`. Si lo encuentra, habilita la regeneración aunque no exista `source.xlsx`; al regenerar lo copia de forma verificada a la carpeta privada de la ejecución para convertirlo en la fuente permanente.
+- `php bin/zknet cleanup` ya no elimina archivos `uploads/{runId}.xlsx` cuando su identificador sigue registrado en `report_runs`; las cargas temporales realmente huérfanas conservan la política de retención configurada. Los respaldos completos también recuperan los XLSX históricos asociados y los guardan en el payload `exports/{runId}/source.xlsx`.
+- **Historial → Regenerar reporte** vuelve a leer el XLSX original, prepara un conjunto temporal y, solo al terminar correctamente, cambia las rutas del ZIP y de los Excel. Se limpia la salida anterior tras confirmar el cambio.
+- La regeneración conserva los IDs de registros departamentales cuando el área sigue presente y mantiene la auditoría de envíos anteriores. Los nuevos archivos quedan pendientes de envío; los correos no se reenvían automáticamente.
+- No cambia el esquema SQLite 5 ni requiere nuevas extensiones o estructura de carpetas. Se amplían las pruebas de splitter, logotipo, respaldo y reemplazo de salidas.
+
+## 1.2.20 — Logotipo configurable en identidad visual
+
+- **Sistema → Identidad visual** permite cargar, reemplazar y quitar el logotipo de la empresa, con vista previa inmediata antes de guardar.
+- Se aceptan PNG, JPG/JPEG, GIF y WebP de hasta 2 MiB, 2400 × 1200 píxeles y 2.5 megapíxeles. SVG y otros formatos se rechazan.
+- Los archivos se validan por contenido real y se guardan con nombre aleatorio en el directorio privado externo. El acceso de lectura sirve únicamente la imagen de marca configurada, con MIME validado y `nosniff`.
+- El logotipo aparece en la navegación lateral y la pantalla de acceso. Las siglas configuradas continúan como alternativa cuando no hay imagen.
+- El recurso se conserva en los respaldos completos porque estos copian el directorio privado. No requiere extensión PHP, permiso IIS adicional ni migración SQLite; el esquema permanece en 5.
+- Se agrega `tests/brand-logo-smoke.php` y se amplía `tests/branding-smoke.js`.
+
 ## 1.2.19 — Ancho completo en todas las pantallas
 
 - El contenedor principal autenticado ahora ocupa todo el ancho disponible del área de contenido, igual que la pantalla **Sistema → Actualizaciones**. Se elimina el límite global de 1,600 px que dejaba márgenes grandes en monitores amplios.
