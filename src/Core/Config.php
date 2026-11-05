@@ -16,4 +16,10 @@ final class Config
     {
         return self::$values[$key] ?? $default;
     }
+
+    /** Actualiza un valor calculado en tiempo de ejecución sin reemplazar la configuración base. */
+    public static function set(string $key, mixed $value): void
+    {
+        self::$values[$key] = $value;
+    }
 }

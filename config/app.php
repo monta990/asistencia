@@ -35,6 +35,7 @@ return [
     'branding_defaults' => [
         'company_name' => 'CY ALIMENTOS',
         'brand_mark' => 'CY',
+        'logo_image' => null,
         'brand_tagline' => 'Control de asistencia',
         'platform_label' => 'PLATAFORMA INTERNA',
         'module_label' => 'NÓMINAS',

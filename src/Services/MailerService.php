@@ -41,6 +41,20 @@ final class MailerService
         (new SmtpTransport())->send($smtp, $recipient, 'Prueba SMTP | ' . $company, $html, $text, null, $signature);
     }
 
+    /** Envía el comprobante del lote al correo de la cuenta que inició el envío masivo. */
+    public function sendBulkSummary(string $recipient, string $subject, string $html, string $text): void
+    {
+        $recipient = strtolower(trim($recipient));
+        if ($recipient === '' || strlen($recipient) > 254 || filter_var($recipient, FILTER_VALIDATE_EMAIL) === false) {
+            throw new \InvalidArgumentException('La cuenta no tiene un correo válido para recibir el comprobante.');
+        }
+        $subject = preg_replace('/[\r\n]+/', ' ', trim($subject)) ?? '';
+        if ($subject === '') {
+            throw new \InvalidArgumentException('El asunto del comprobante está vacío.');
+        }
+        (new SmtpTransport())->send($this->smtpConfig(), $recipient, $subject, $html, $text, null, null);
+    }
+
     /** @return array{sent:list<string>,failed:array<string,string>} */
     public function sendDepartment(array $recipients, string $attachment, array $context, string $responsibleEmail = ''): array
     {

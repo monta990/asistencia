@@ -202,6 +202,30 @@ final class DepartmentRepository
     }
 
     /**
+     * Devuelve todos los destinatarios guardados por departamento para precargar formularios de edición.
+     * Incluye registros deshabilitados, para no descartarlos al abrir y guardar el formulario.
+     * @param list<int> $departmentIds
+     * @return array<int, list<string>>
+     */
+    public function recipientsByDepartmentIds(array $departmentIds): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $departmentIds), static fn (int $id): bool => $id > 0)));
+        if ($ids === []) {
+            return [];
+        }
+
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $statement = $this->pdo->prepare("SELECT department_id, email FROM department_recipients WHERE department_id IN ($placeholders) ORDER BY department_id, email");
+        $statement->execute($ids);
+        $result = [];
+        foreach ($statement->fetchAll() as $row) {
+            $departmentId = (int) $row['department_id'];
+            $result[$departmentId][] = (string) $row['email'];
+        }
+        return $result;
+    }
+
+    /**
      * Direcciones que deben recibir el Excel: destinatarios activos más el responsable.
      * El responsable recibe siempre su copia aunque no esté en la lista de destinatarios.
      * @return list<string>

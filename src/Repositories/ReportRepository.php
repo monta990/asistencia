@@ -39,6 +39,142 @@ final class ReportRepository
         }
     }
 
+    /**
+     * Reemplaza el conjunto de salidas de una ejecución conservando sus IDs cuando
+     * el departamento sigue presente. Así las referencias de auditoría de correo
+     * continúan asociadas al mismo registro y los intentos anteriores no se borran.
+     *
+     * @return array{archive_path:string,department_paths:list<string>}
+     */
+    public function replaceRunOutputs(string $runId, array $run, array $files): array
+    {
+        $existingRun = $this->findRun($runId);
+        if ($existingRun === null) {
+            throw new \RuntimeException('No se encontró la ejecución que deseas regenerar.');
+        }
+        if ($files === []) {
+            throw new \RuntimeException('La regeneración no produjo archivos de departamento.');
+        }
+
+        $existingFiles = $this->departmentFiles($runId);
+        $oldDepartmentPaths = [];
+        $oldArchivePath = trim((string) ($existingRun['archive_path'] ?? ''));
+        foreach ($existingFiles as $existingFile) {
+            $path = trim((string) ($existingFile['file_path'] ?? ''));
+            if ($path !== '') {
+                $oldDepartmentPaths[] = $path;
+            }
+        }
+
+        $existingByKey = [];
+        foreach ($existingFiles as $existingFile) {
+            $departmentId = (int) ($existingFile['department_id'] ?? 0);
+            $key = $departmentId > 0
+                ? 'id:' . $departmentId
+                : 'label:' . self::normalizeDepartmentKey((string) $existingFile['report_label']);
+            $existingByKey[$key] = $existingFile;
+        }
+
+        $this->pdo->beginTransaction();
+        try {
+            $update = $this->pdo->prepare('UPDATE report_department_files
+                SET department_id = :department_id,
+                    report_label = :label,
+                    department_name = :name,
+                    file_name = :file_name,
+                    file_path = :file_path,
+                    recipient_snapshot = :recipients,
+                    delivery_status = :status,
+                    delivery_error = \'\',
+                    delivered_at = NULL
+                WHERE id = :id');
+            $insert = $this->pdo->prepare('INSERT INTO report_department_files
+                (run_id, department_id, report_label, department_name, file_name, file_path, recipient_snapshot, delivery_status)
+                VALUES (:run_id, :department_id, :label, :name, :file_name, :file_path, :recipients, :status)');
+
+            foreach ($files as $file) {
+                $departmentId = isset($file['department_id']) && (int) $file['department_id'] > 0
+                    ? (int) $file['department_id']
+                    : null;
+                $label = trim((string) ($file['report_label'] ?? ''));
+                $name = trim((string) ($file['department_name'] ?? ''));
+                $fileName = trim((string) ($file['file_name'] ?? ''));
+                $filePath = trim((string) ($file['relative_path'] ?? ''));
+                $recipients = is_array($file['recipients'] ?? null) ? $file['recipients'] : [];
+                $status = (string) ($file['delivery_status'] ?? 'not_requested');
+                if ($label === '' || $name === '' || $fileName === '' || $filePath === ''
+                    || !in_array($status, ['disabled', 'no_recipients', 'not_requested', 'pending'], true)) {
+                    throw new \RuntimeException('La regeneración produjo información incompleta para un departamento.');
+                }
+                $key = $departmentId !== null
+                    ? 'id:' . $departmentId
+                    : 'label:' . self::normalizeDepartmentKey($label);
+                $params = [
+                    'department_id' => $departmentId,
+                    'label' => $label,
+                    'name' => $name,
+                    'file_name' => $fileName,
+                    'file_path' => $filePath,
+                    'recipients' => json_encode(array_values($recipients), JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
+                    'status' => $status,
+                ];
+
+                if (isset($existingByKey[$key])) {
+                    $existingId = (int) $existingByKey[$key]['id'];
+                    $update->execute($params + ['id' => $existingId]);
+                    unset($existingByKey[$key]);
+                } else {
+                    $insert->execute(['run_id' => $runId] + $params);
+                }
+            }
+
+            foreach ($existingByKey as $removed) {
+                $this->pdo->prepare('DELETE FROM report_department_files WHERE id = :id AND run_id = :run_id')
+                    ->execute(['id' => (int) $removed['id'], 'run_id' => $runId]);
+            }
+
+            $updateRun = $this->pdo->prepare('UPDATE report_runs
+                SET archive_name = :archive_name,
+                    archive_path = :archive_path,
+                    week = :week,
+                    iso_year = :year,
+                    start_date = :start_date,
+                    end_date = :end_date,
+                    departments_count = :count,
+                    email_sent_count = 0,
+                    email_failed_count = 0,
+                    status = \'completed\'
+                WHERE id = :id');
+            $updateRun->execute([
+                'archive_name' => (string) ($run['archive_name'] ?? ''),
+                'archive_path' => (string) ($run['archive_path'] ?? ''),
+                'week' => (string) ($run['week'] ?? ''),
+                'year' => (string) ($run['year'] ?? ''),
+                'start_date' => (string) ($run['start_date'] ?? ''),
+                'end_date' => (string) ($run['end_date'] ?? ''),
+                'count' => count($files),
+                'id' => $runId,
+            ]);
+            if ($updateRun->rowCount() !== 1) {
+                throw new \RuntimeException('No se pudo actualizar el resumen de la ejecución regenerada.');
+            }
+            $this->updateRunCounters($runId);
+            $this->pdo->commit();
+        } catch (\Throwable $exception) {
+            if ($this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
+            throw $exception;
+        }
+
+        return ['archive_path' => $oldArchivePath, 'department_paths' => array_values(array_unique($oldDepartmentPaths))];
+    }
+
+    private static function normalizeDepartmentKey(string $label): string
+    {
+        return strtolower(trim(preg_replace('/\s+/u', ' ', $label) ?? $label));
+    }
+
     public function departmentFiles(string $runId): array
     {
         $statement = $this->pdo->prepare('SELECT f.*, COALESCE(d.enabled, 0) AS department_enabled, COALESCE(d.needs_configuration, 0) AS needs_configuration, (SELECT COUNT(*) FROM mail_events e WHERE e.department_file_id = f.id) AS mail_attempt_count FROM report_department_files f LEFT JOIN departments d ON d.id = f.department_id WHERE f.run_id = :id ORDER BY f.id');
@@ -55,7 +191,7 @@ final class ReportRepository
         return is_array($row) ? $row : null;
     }
 
-    public function updateDelivery(int $fileId, string $status, string $error, array $recipientResults): void
+    public function updateDelivery(int $fileId, string $status, string $error, array $recipientResults, ?string $batchId = null): int
     {
         $this->pdo->beginTransaction();
         try {
@@ -64,8 +200,128 @@ final class ReportRepository
             $runIdStatement = $this->pdo->prepare('SELECT run_id FROM report_department_files WHERE id = :id');
             $runIdStatement->execute(['id' => $fileId]);
             $runId = (string) $runIdStatement->fetchColumn();
-            $log = $this->pdo->prepare('INSERT INTO mail_events (run_id, department_file_id, recipients, status, error_text, created_at) VALUES (:run_id, :file_id, :recipients, :status, :error, :now)');
-            $log->execute(['run_id' => $runId, 'file_id' => $fileId, 'recipients' => json_encode($recipientResults, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), 'status' => $status, 'error' => $error, 'now' => date(DATE_ATOM)]);
+            $log = $this->pdo->prepare('INSERT INTO mail_events (run_id, department_file_id, recipients, status, error_text, created_at, batch_id) VALUES (:run_id, :file_id, :recipients, :status, :error, :now, :batch_id)');
+            $log->execute(['run_id' => $runId, 'file_id' => $fileId, 'recipients' => json_encode($recipientResults, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), 'status' => $status, 'error' => $error, 'now' => date(DATE_ATOM), 'batch_id' => $batchId]);
+            $eventId = (int) $this->pdo->lastInsertId();
+            $this->updateRunCounters($runId);
+            $this->pdo->commit();
+            return $eventId;
+        } catch (\Throwable $exception) {
+            if ($this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
+            throw $exception;
+        }
+    }
+
+    /** Crea una sesión de envío masivo ligada al usuario y a una ejecución concreta. */
+    public function createBulkMailBatch(string $runId, int $userId): string
+    {
+        if ($userId < 1 || $this->findRun($runId) === null) {
+            throw new \RuntimeException('No se pudo validar la ejecución o el usuario que inicia el envío masivo.');
+        }
+        $batchId = bin2hex(random_bytes(16));
+        $statement = $this->pdo->prepare("INSERT INTO bulk_mail_batches (id, run_id, user_id, started_at, summary_status) VALUES (:id, :run_id, :user_id, :started_at, 'pending')");
+        $statement->execute(['id' => $batchId, 'run_id' => $runId, 'user_id' => $userId, 'started_at' => date(DATE_ATOM)]);
+        return $batchId;
+    }
+
+    public function findBulkMailBatch(string $batchId, int $userId, string $runId): ?array
+    {
+        $statement = $this->pdo->prepare('SELECT * FROM bulk_mail_batches WHERE id = :id AND user_id = :user_id AND run_id = :run_id LIMIT 1');
+        $statement->execute(['id' => $batchId, 'user_id' => $userId, 'run_id' => $runId]);
+        $row = $statement->fetch();
+        return is_array($row) ? $row : null;
+    }
+
+    /** Reclama el cierre una sola vez para evitar enviar dos resúmenes al usuario. */
+    public function claimBulkMailSummary(string $batchId, int $userId, string $runId): bool
+    {
+        $statement = $this->pdo->prepare("UPDATE bulk_mail_batches SET completed_at = COALESCE(completed_at, :now), summary_status = 'processing', summary_error = '' WHERE id = :id AND user_id = :user_id AND run_id = :run_id AND summary_status = 'pending'");
+        $statement->execute(['now' => date(DATE_ATOM), 'id' => $batchId, 'user_id' => $userId, 'run_id' => $runId]);
+        return $statement->rowCount() === 1;
+    }
+
+    public function updateBulkMailSummaryStatus(string $batchId, string $status, string $error = ''): void
+    {
+        if (!in_array($status, ['sent', 'no_email', 'failed'], true)) {
+            throw new \InvalidArgumentException('El estado del resumen de envío masivo no es válido.');
+        }
+        $statement = $this->pdo->prepare("UPDATE bulk_mail_batches SET summary_status = :status, summary_error = :error, summary_sent_at = CASE WHEN :status_sent = 'sent' THEN :sent_at ELSE summary_sent_at END WHERE id = :id");
+        $statement->execute(['status' => $status, 'error' => substr($error, 0, 1000), 'status_sent' => $status, 'sent_at' => date(DATE_ATOM), 'id' => $batchId]);
+    }
+
+    /** @return list<array<string,mixed>> */
+    public function bulkMailEvents(string $batchId): array
+    {
+        $statement = $this->pdo->prepare('SELECT e.*, f.department_name FROM mail_events e LEFT JOIN report_department_files f ON f.id = e.department_file_id WHERE e.batch_id = :batch_id ORDER BY e.id');
+        $statement->execute(['batch_id' => $batchId]);
+        return $statement->fetchAll();
+    }
+
+    /** Registra un departamento omitido sin confundirlo con un fallo SMTP. */
+    public function recordBulkSkip(int $fileId, string $runId, string $batchId, string $status, string $reason): void
+    {
+        if (!in_array($status, ['disabled', 'no_recipients'], true)) {
+            throw new \InvalidArgumentException('El motivo de omisión no es válido.');
+        }
+        $this->recordBulkEvent($fileId, $runId, $batchId, $status, 'skipped', [
+            'sent' => [], 'failed' => [], 'skipped' => true, 'message' => $reason,
+        ], $reason);
+    }
+
+    /** Registra un fallo de preparación o de comunicación que no produjo un resultado SMTP normal. */
+    public function recordBulkFailure(int $fileId, string $runId, string $batchId, string $reason): void
+    {
+        $this->recordBulkEvent($fileId, $runId, $batchId, 'failed', 'failed', [
+            'sent' => [], 'failed' => [], 'error' => $reason,
+        ], $reason);
+    }
+
+    /** Registra un error de red comunicado por el navegador solo si el servidor no guardó ya el intento. */
+    public function recordBulkClientIssue(int $fileId, string $runId, string $batchId, string $reason): void
+    {
+        $reason = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', ' ', $reason) ?? '';
+        $reason = trim(substr($reason, 0, 500));
+        if ($reason === '') {
+            $reason = 'No se recibió confirmación del navegador.';
+        }
+        $this->recordBulkEvent($fileId, $runId, $batchId, 'failed', 'failed', [
+            'sent' => [], 'failed' => [], 'error' => 'No se recibió confirmación del servidor: ' . $reason,
+        ], 'No se recibió confirmación del servidor: ' . $reason, true);
+    }
+
+    private function recordBulkEvent(int $fileId, string $runId, string $batchId, string $fileStatus, string $eventStatus, array $result, string $error, bool $onlyWhenMissing = false): void
+    {
+        $this->pdo->beginTransaction();
+        try {
+            $file = $this->pdo->prepare('SELECT run_id FROM report_department_files WHERE id = :id LIMIT 1');
+            $file->execute(['id' => $fileId]);
+            if ((string) $file->fetchColumn() !== $runId) {
+                throw new \RuntimeException('El archivo no pertenece a la ejecución del envío masivo.');
+            }
+            $batch = $this->pdo->prepare('SELECT 1 FROM bulk_mail_batches WHERE id = :id AND run_id = :run_id LIMIT 1');
+            $batch->execute(['id' => $batchId, 'run_id' => $runId]);
+            if ($batch->fetchColumn() === false) {
+                throw new \RuntimeException('No se encontró el lote de envío masivo.');
+            }
+            if ($onlyWhenMissing) {
+                $existing = $this->pdo->prepare('SELECT 1 FROM mail_events WHERE batch_id = :batch_id AND department_file_id = :file_id LIMIT 1');
+                $existing->execute(['batch_id' => $batchId, 'file_id' => $fileId]);
+                if ($existing->fetchColumn() !== false) {
+                    $this->pdo->commit();
+                    return;
+                }
+            }
+            $update = $this->pdo->prepare('UPDATE report_department_files SET delivery_status = :status, delivery_error = :error, delivered_at = NULL WHERE id = :id');
+            $update->execute(['status' => $fileStatus, 'error' => substr($error, 0, 1000), 'id' => $fileId]);
+            $insert = $this->pdo->prepare('INSERT INTO mail_events (run_id, department_file_id, recipients, status, error_text, created_at, batch_id) VALUES (:run_id, :file_id, :recipients, :status, :error, :now, :batch_id)');
+            $insert->execute([
+                'run_id' => $runId, 'file_id' => $fileId,
+                'recipients' => json_encode($result, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
+                'status' => $eventStatus, 'error' => substr($error, 0, 1000),
+                'now' => date(DATE_ATOM), 'batch_id' => $batchId,
+            ]);
             $this->updateRunCounters($runId);
             $this->pdo->commit();
         } catch (\Throwable $exception) {

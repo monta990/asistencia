@@ -30,5 +30,6 @@ La garantía de atomicidad aplica a las operaciones SQLite transaccionales. Cons
 - `004_department_discovery.php`: bandera de configuración pendiente para registrar departamentos nuevos sin bloquear el procesamiento; quedan deshabilitados para correo hasta que un administrador los revise.
 
 - `005_account_lockout_and_sessions.php`: contador persistente de intentos fallidos, fecha de desbloqueo y versión de sesión por usuario.
+- `006_bulk_mail_batches.php`: identifica cada envío masivo, asocia los eventos SMTP y conserva el estado del comprobante enviado al usuario que inició la operación.
 
-El esquema objetivo de 1.2.19 es 5. La siguiente migración disponible es `006_*.php`. Las migraciones 001 a 005 no deben editarse ni renombrarse después de aplicarse.
+El esquema objetivo de 1.2.26 es 6. La siguiente migración disponible es `007_*.php`. La migración `006_bulk_mail_batches.php` asocia eventos SMTP a una distribución masiva y registra el estado de su comprobante; reutiliza `users.email`, columna existente desde la migración 001. Las migraciones 001 a 006 no deben editarse ni renombrarse después de aplicarse.

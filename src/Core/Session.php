@@ -15,7 +15,11 @@ final class Session
         ini_set('session.use_trans_sid', '0');
         ini_set('session.cookie_httponly', '1');
         ini_set('session.cookie_samesite', 'Lax');
-        ini_set('session.gc_maxlifetime', (string) max(300, (int) Config::get('session_idle_timeout', 1800)));
+        $idleTimeout = max(0, (int) Config::get('session_idle_timeout', 1800));
+        // 0 desactiva el vencimiento por inactividad. Un GC muy amplio evita que
+        // PHP elimine el archivo de sesión antes que la política administrada.
+        $gcLifetime = $idleTimeout === 0 ? 2147483647 : max(300, $idleTimeout);
+        ini_set('session.gc_maxlifetime', (string) $gcLifetime);
         $secureCookie = self::isHttps();
         ini_set('session.cookie_secure', $secureCookie ? '1' : '0');
         $sessionPath = (string) Config::get('storage_sessions', '');
@@ -37,7 +41,7 @@ final class Session
         }
         $now = time();
         $last = (int) ($_SESSION['_last_activity'] ?? $now);
-        if ($now - $last > (int) Config::get('session_idle_timeout', 1800)) {
+        if ($idleTimeout > 0 && ($now - $last) > $idleTimeout) {
             $_SESSION = [];
             session_regenerate_id(true);
         }
