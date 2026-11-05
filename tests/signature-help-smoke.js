@@ -21,5 +21,5 @@ assert(mailView.includes('name="remove_signature_image"'), 'SMTP settings must a
 assert(controller.includes('SignatureImage::store') && controller.includes('signature_preview'), 'Signature upload/preview controller routes are missing');
 assert(signature.includes('MAX_BYTES = 2_097_152') && signature.includes('image/webp'), 'Signature size and MIME validation are missing');
 assert(mailer.includes("'content_id' => 'zktime-signature@local'"), 'Mailer must attach a stable CID for the inline signature');
-assert(version.includes("VERSION = '1.2.19'"), 'Version must be 1.2.4');
+assert(version.includes("VERSION = '1.2.31'"), 'Version must be 1.2.4');
 console.log('Signature image and role-specific help smoke: OK');

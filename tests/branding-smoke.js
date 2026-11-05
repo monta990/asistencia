@@ -26,7 +26,7 @@ assert(login.includes("$branding['company_name']") && login.includes("$branding[
 assert(config.includes("'branding_defaults'"), 'branding defaults missing');
 for (const token of ['{{aplicacion}}', '{{plataforma}}', '{{lema}}']) assert(renderer.includes(token), `template variable ${token} missing`);
 assert(css.includes('body{font-size:16px;line-height:1.55}'), 'global readability override missing');
-assert(version.includes("VERSION = '1.2.19'"), 'version not bumped');
+assert(version.includes("VERSION = '1.2.31'"), 'version not bumped');
 assert(updates.includes('Html::escape(PHP_VERSION)') && updates.includes('Version::VERSION'), 'technical runtime details must appear in Updates');
 assert(!layout.includes('PHP_VERSION') && !layout.includes('Version::VERSION') && !login.includes('PHP_VERSION') && !login.includes('Version::VERSION'), 'runtime/version details must not appear in normal chrome or login');
 console.log('OK: identidad editable, campos validados, SQLite settings, vistas/login, variables y escala tipográfica.');

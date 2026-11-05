@@ -54,8 +54,8 @@ try {
     $pdo->exec('PRAGMA foreign_keys = ON');
     $migrator = new MigrationManager($pdo, $root . '/database/migrations');
     $firstMigration = $migrator->migrate();
-    $assert($migrator->currentVersion() === 5, 'las migraciones establecen el esquema 5');
-    $assert($firstMigration['applied'] === [1, 2, 3, 4, 5], 'las migraciones 001 a 005 se aplican en orden');
+    $assert($migrator->currentVersion() === 6, 'las migraciones establecen el esquema 6');
+    $assert($firstMigration['applied'] === [1, 2, 3, 4, 5, 6], 'las migraciones 001 a 006 se aplican en orden');
     $assert($migrator->migrate()['applied'] === [], 'migrar dos veces no repite cambios');
 
     $userRepository = new UserRepository($pdo);

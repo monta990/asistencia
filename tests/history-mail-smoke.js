@@ -23,5 +23,5 @@ assert(index.includes('$reports->updateDelivery($fileId'), 'attempt result is lo
 assert(index.includes("$returnUrl .= '&run=' . rawurlencode((string) $_GET['run'])"), 'errors return to the selected execution detail');
 assert(repository.includes('findDepartmentFileForDelivery'), 'repository loads historical file context');
 assert(repository.includes('AS mail_attempt_count'), 'repository counts mail event attempts');
-assert(version.includes("VERSION = '1.2.19'"), 'version is bumped');
+assert(version.includes("VERSION = '1.2.31'"), 'version is bumped');
 console.log('OK: envío inicial, reenvío, destinatarios actuales, auditoría y estado Sin correo.');

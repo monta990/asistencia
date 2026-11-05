@@ -24,7 +24,7 @@ assert(mailer.includes("!array_key_exists('department_recipients_reply_to', $smt
 assert(transport.includes(`$headers[] = 'Reply-To: ' . implode(",`), 'Reply-To header must fold safely');
 assert(transport.includes("preg_replace('/\\r\\n|\\r|\\n/'"), 'SMTP line endings must be normalized in one regex pass');
 assert(transport.includes('rtrim($message, \"\\r\\n\")'), 'SMTP DATA must preserve a valid final CRLF before terminator');
-assert(version.includes("VERSION = '1.2.19'"), 'version must be 1.2.4');
+assert(version.includes("VERSION = '1.2.31'"), 'version must be 1.2.4');
 assert(view.includes('enctype="multipart/form-data"') && view.includes('name="signature_image"'), 'signature image upload control is missing');
 assert(mailer.includes('signatureHtml') && mailer.includes('signatureImage'), 'mailer must inject configured inline signature');
 assert(transport.includes('multipart/related') && transport.includes('Content-ID: <'), 'SMTP transport must support CID inline images');
