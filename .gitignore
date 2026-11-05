@@ -1,0 +1,13 @@
+/vendor/*
+!/vendor/autoload.php
+!/vendor/.htaccess
+/storage/private/*
+!/storage/private/.gitkeep
+/storage/uploads/*
+!/storage/uploads/.gitkeep
+/storage/exports/*
+!/storage/exports/.gitkeep
+/storage/backups/*
+!/storage/backups/.gitkeep
+.phpunit.cache/
+*.log
