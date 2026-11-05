@@ -96,15 +96,15 @@ final class Auth
             $policy = self::lockoutPolicy($pdo);
             $maxAttempts = $policy['max_attempts'];
             $lockUntil = date(DATE_ATOM, $now + ($policy['lockout_minutes'] * 60));
-            // Una sola sentencia atómica evita perder incrementos cuando llegan dos intentos simultáneos.
+            // El umbral ya está acotado por lockoutPolicy() (3–20); interpolar solo ese entero
+            // evita placeholders repetidos o duplicados en PDO SQLite con prepares nativos.
+            $threshold = (string) $maxAttempts;
             $update = $pdo->prepare('UPDATE users SET
-                locked_until = CASE WHEN failed_login_attempts + 1 >= :lockout_threshold_for_time THEN :locked_until ELSE locked_until END,
-                session_version = CASE WHEN failed_login_attempts + 1 >= :lockout_threshold_for_version THEN session_version + 1 ELSE session_version END,
+                locked_until = CASE WHEN failed_login_attempts + 1 >= ' . $threshold . ' THEN :locked_until ELSE locked_until END,
+                session_version = CASE WHEN failed_login_attempts + 1 >= ' . $threshold . ' THEN session_version + 1 ELSE session_version END,
                 failed_login_attempts = failed_login_attempts + 1
                 WHERE id = :id AND is_active = 1 AND (locked_until IS NULL OR locked_until <= :now)');
             $update->execute([
-                'lockout_threshold_for_time' => $maxAttempts,
-                'lockout_threshold_for_version' => $maxAttempts,
                 'locked_until' => $lockUntil,
                 'id' => $record['id'],
                 'now' => date(DATE_ATOM, $now),
