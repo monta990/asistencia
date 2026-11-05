@@ -10,6 +10,7 @@ use ZkTimeNet\Core\Html;
 use ZkTimeNet\Core\MigrationManager;
 use ZkTimeNet\Core\Version;
 use ZkTimeNet\Repositories\SettingsRepository;
+use ZkTimeNet\Services\BrandLogo;
 
 if (!defined('ZKTIME_BOOTSTRAP_ALLOWED')) {
     define('ZKTIME_BOOTSTRAP_ALLOWED', true);
@@ -22,6 +23,9 @@ if (Auth::check() && Auth::refresh($pdo)) {
 $brandingDefaults = (array) Config::get('branding_defaults', []);
 $brandingSaved = (new SettingsRepository($pdo))->get('branding', []);
 $branding = array_replace($brandingDefaults, is_array($brandingSaved) ? $brandingSaved : []);
+$logoFilename = is_array($branding['logo_image'] ?? null) ? (string) ($branding['logo_image']['filename'] ?? '') : '';
+$brandLogoAvailable = BrandLogo::resolve($branding['logo_image'] ?? null, (string) Config::get('storage_private')) !== null;
+$brandLogoUrl = 'index.php?action=brand_logo&v=' . substr(hash('sha256', $logoFilename), 0, 12);
 $migrationStatus = (new MigrationManager($pdo, __DIR__ . '/database/migrations'))->status();
 $legacyUpdatePending = $migrationStatus['current'] < Version::USER_AUTH_SCHEMA;
 $systemUpdatePending = $migrationStatus['current'] >= Version::USER_AUTH_SCHEMA && $migrationStatus['current'] < Version::SCHEMA_TARGET;
@@ -53,10 +57,10 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#006ECA"><title>Acceso | <?= Html::escape($branding['application_name']) ?></title>
-  <script src="assets/theme.js?v=1.2.19"></script>
-  <link rel="stylesheet" href="assets/app.css?v=1.2.19">
-  <link rel="stylesheet" href="assets/theme.css?v=1.2.19">
-  <script src="assets/app.js?v=1.2.19" defer></script>
+  <script src="assets/theme.js?v=1.2.31"></script>
+  <link rel="stylesheet" href="assets/app.css?v=1.2.31">
+  <link rel="stylesheet" href="assets/theme.css?v=1.2.31">
+  <script src="assets/app.js?v=1.2.31" defer></script>
 </head>
 <body class="login-page">
   <div class="theme-control theme-control-login" aria-label="Preferencia de apariencia">
@@ -64,7 +68,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     <button class="btn btn-quiet btn-small theme-toggle" type="button" data-theme-toggle aria-label="Cambiar tema" title="Tema: sistema"><span class="theme-toggle-icon" data-theme-icon aria-hidden="true"><?= Html::icon('theme') ?></span><span data-theme-label>Sistema</span></button>
   </div>
   <main class="login-shell">
-    <div class="login-brand"><span class="brand-mark"><?= Html::escape($branding['brand_mark']) ?></span><div><strong><?= Html::escape($branding['company_name']) ?></strong><small><?= Html::escape($branding['brand_tagline']) ?></small></div></div>
+    <div class="login-brand"><?php if ($brandLogoAvailable): ?><img class="brand-logo-image" src="<?= Html::escape($brandLogoUrl) ?>" alt="Logotipo de <?= Html::escape($branding['company_name']) ?>"><?php else: ?><span class="brand-mark"><?= Html::escape($branding['brand_mark']) ?></span><?php endif; ?><div><strong><?= Html::escape($branding['company_name']) ?></strong><small><?= Html::escape($branding['brand_tagline']) ?></small></div></div>
     <section class="login-card">
       <div class="eyebrow"><?= Html::escape($branding['platform_label']) ?></div>
       <h1>Iniciar sesión</h1>

@@ -1,6 +1,46 @@
+# Revisión de seguridad 1.2.31 — Ajustes visuales de dashboard y tarjetas
+
+La versión 1.2.31 solo modifica estilos de presentación y el orden de enlaces existentes en el menú lateral. No añade endpoints, formularios, operaciones de escritura, permisos, datos de entrada ni cambios de almacenamiento. Los identificadores de navegación y las rutas permanecen intactos. No se modifica la superficie de seguridad ni el esquema SQLite.
+
+La versión 1.2.30 solo reorganiza la presentación del catálogo de departamentos. El alta/edición continúa usando `save_department`, el control de acceso de la página, CSRF, validación de `DepartmentRepository::save()` y la transacción existente. No crea endpoints nuevos, no acepta identificadores de destinatario ni rutas desde el cliente y no cambia las operaciones de borrado o distribución. Los valores colocados en atributos `data-department-*` se escapan con `Html::escape`; la lista de destinatarios se serializa con `json_encode` usando `JSON_HEX_TAG`, `JSON_HEX_APOS`, `JSON_HEX_QUOT` y `JSON_HEX_AMP` antes del escape HTML. No se exponen contraseñas, claves SMTP ni otros secretos. No hay cambio de esquema SQLite ni ampliación de privilegios.
+
+La versión 1.2.29 fue una reorganización de presentación. La lista de usuarios conserva el acceso exclusivo a Administradores. El modal de alta/edición reutiliza `save_user`, la autorización existente, las validaciones del repositorio y CSRF; no introduce endpoints ni nuevas operaciones de escritura. Los atributos `data-user-*` se escapan con `Html::escape` y no incluyen hashes ni contraseñas. El campo contraseña permanece vacío al editar y solo se procesa cuando el administrador escribe una nueva. La política de sesión solo cambia de distribución visual; conserva almacenamiento, límites y permisos. No hay cambio de superficie de seguridad ni migración SQLite.
+
+- La duración por inactividad se configura solo mediante la acción `save_login_policy`, incluida en la lista de acciones exclusivas de Administrador y protegida por CSRF. El valor se valida en servidor entre 0 y 10,080 minutos.
+- El ajuste se guarda en la configuración `security` de SQLite. El valor ausente en instalaciones anteriores conserva el fallback de 30 minutos.
+- Con valor mayor que cero, la sesión se invalida en la primera petición posterior al umbral de inactividad. Con valor 0 se desactiva únicamente ese vencimiento; la cookie es de sesión y se elimina al cerrar el navegador. Los controles `session_version`, estado, bloqueo y revocación no se desactivan.
+- Para `0`, el GC nativo recibe `session.gc_maxlifetime = 2,147,483,647`; esto evita la limpieza ordinaria temprana de PHP, pero los administradores deben conservar protegida la carpeta externa `sessions`.
+- Riesgo residual: un valor `0` en un equipo compartido o no bloqueado puede dejar la cuenta autenticada mientras el navegador siga abierto. También hace que PHP conserve archivos de sesión abandonados durante un periodo muy amplio, por lo que el directorio privado `sessions` podría crecer con el tiempo. Se recomienda usar un tiempo limitado en equipos compartidos y cerrar sesión al terminar.
+- No hay migración SQLite, cambio de rutas ni acceso al parámetro para usuarios Nominista.
+
+---
+
+La versión 1.2.26 no cambia la superficie de seguridad respecto a 1.2.25; únicamente estabiliza el texto informativo de la pantalla de actualizaciones. La versión 1.2.25 incorpora el seguimiento de lotes masivos y un comprobante SMTP dirigido al correo de la cuenta que inició la operación. El endpoint exige sesión autenticada y CSRF, limita el lote al usuario y a la ejecución correspondientes, y solo usa destinatarios resueltos desde la base de datos. El comprobante se genera con eventos identificados por `batch_id`; HTML, nombres, direcciones y motivos se escapan antes de renderizar. El correo de usuario es opcional, se valida en servidor y se puede mantener desde Mi cuenta o Administración → Usuarios. La columna `users.email` es preexistente; la migración 006 crea `bulk_mail_batches` y enlaza eventos de correo sin reescribir las migraciones anteriores. La aceptación SMTP no se presenta como confirmación de entrega final.
+
+
+
+## Regeneración de reportes y recursos OOXML
+
+- La fuente XLSX se conserva como `source.xlsx` bajo el directorio privado de la ejecución, con permisos restrictivos. `presentation.json` almacena únicamente el nombre visible de la persona y la fecha de elaboración (no credenciales ni tokens), también con permisos restrictivos; ambos archivos se incluyen en backup privado. La acción solo la resuelve dentro de `storage_exports/{runId}` tras validar el ID hexadecimal y verificar `realpath`; no acepta rutas locales enviadas por el navegador.
+- La regeneración exige Administrador y CSRF, y utiliza un bloqueo exclusivo por ejecución para impedir regeneraciones simultáneas. Genera primero en una carpeta candidata y persiste los nuevos metadatos en una transacción; solo tras el commit elimina archivos antiguos validados como descendientes de la carpeta de ejecución. Ante error previo al commit limpia solo la candidata.
+- Los IDs de `report_department_files` se conservan para departamentos existentes, por lo que la auditoría `mail_events` no se pierde. Las filas obsoletas pueden retirarse con `ON DELETE SET NULL` en su referencia de archivo; el evento de envío no se elimina.
+- El logotipo se resuelve desde metadatos de SQLite con `BrandLogo::resolve`, nunca desde una ruta provista por el usuario. Se valida MIME real, tamaño y dimensiones antes de copiarlo a DrawingML. Solo se admiten imágenes raster; SVG no puede introducir scripts ni contenido activo en el libro.
+- La manipulación OOXML actualiza las relaciones de hoja/dibujo y `[Content_Types].xml`; el archivo original de ZKTimeNet no se modifica.
+- No se añade una migración ni una nueva superficie de escritura pública. `regenerate_run_reports` está en la allowlist de acciones administrativas y usa token CSRF.
+
 # Security review — ZKTimeNet 1.2.18 (baseline)
 
-La versión 1.2.19 solo cambia el layout global y la invalidación de caché frontend; no modifica controles, permisos, autenticación, sesiones, datos ni endpoints de seguridad.
+La versión 1.2.20 agregó carga de logotipo raster con validación de contenido, MIME y dimensiones, nombre de archivo aleatorio y almacenamiento privado fuera del DocumentRoot. La ruta `index.php?action=brand_logo` publica únicamente el recurso de marca activo para mostrarlo en el login sin autenticación; resuelve el archivo exclusivamente desde metadatos de SQLite y `BrandLogo::resolve`, nunca acepta rutas desde el cliente, devuelve MIME validado y `X-Content-Type-Options: nosniff`. La operación de carga/eliminación se mantiene protegida por sesión Administrador y CSRF. No cambia el esquema SQLite.
+
+
+## Envío masivo y comprobante de soporte (1.2.25)
+
+- `bulk_send_start`, `bulk_send_one` y `bulk_send_summary` exigen sesión autenticada y token CSRF. Cada lote tiene un ID aleatorio de 128 bits y se vincula en SQLite al usuario y a la ejecución; las consultas de lectura comprueban ambos vínculos.
+- El navegador solo envía el ID del archivo para seleccionar el registro. La ruta, el nombre del adjunto, la configuración SMTP y las direcciones de envío se vuelven a resolver en el servidor.
+- `mail_events.batch_id` separa los resultados de esa operación de intentos individuales o de otras ejecuciones. El comprobante consulta exclusivamente los eventos del lote y no adjunta los Excel ni el ZIP.
+- El correo del usuario se valida y normaliza en `UserRepository`; se permite dejarlo vacío. Cada usuario solo puede editar su propio correo; la edición de otras cuentas sigue restringida a Administradores.
+- El comprobante escapa los valores dinámicos para HTML y limita motivos externos a 500 caracteres al registrar incidencias comunicadas por el navegador. El mensaje de soporte no afirma que el correo haya llegado o sido leído, solo que el servidor SMTP aceptó o rechazó cada destinatario.
+- La migración 006 usa transacciones y claves foráneas. La migración manager crea un respaldo automático de SQLite antes de aplicarla.
 
 ## S-02 — Bloqueo persistente de cuentas
 
@@ -19,7 +59,7 @@ La versión 1.2.19 solo cambia el layout global y la invalidación de caché fro
 ## S-05 — Credencial administrativa predefinida
 
 - Se conserva la corrección de 1.2.16: `config/app.php` no contiene `admin_password_hash` ni usuario/contraseña predeterminados para instalaciones nuevas. El instalador solicita la contraseña y genera el hash con `password_hash()`; solo lo entrega en memoria a la migración histórica 003.
-- Las instalaciones existentes con esquema 3/4 conservan sus credenciales y datos; esquema 5 ya está actualizado. 1.2.18 agrega la migración 005 sin reescribir las migraciones históricas.
+- Las instalaciones existentes con esquema 3/4 conservan sus credenciales y datos; las bases en esquema 5 aplican la migración 006 de lotes de correo. 1.2.25 reutiliza `users.email`, ya existente desde la migración 001, y no reescribe las migraciones históricas.
 
 ## Respaldo y restauración
 

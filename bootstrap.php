@@ -105,6 +105,18 @@ try {
         $departments->seedDefaults();
     }
     $settings = new SettingsRepository($pdo);
+    // La duración por inactividad se lee desde SQLite antes de iniciar la sesión PHP,
+    // de modo que el cambio administrativo aplica a todas las peticiones siguientes.
+    $securitySettings = $settings->get('security', []);
+    $securitySettings = is_array($securitySettings) ? $securitySettings : [];
+    $defaultSessionMinutes = max(0, intdiv((int) Config::get('session_idle_timeout', 1800), 60));
+    $sessionMinutes = filter_var($securitySettings['session_idle_timeout_minutes'] ?? $defaultSessionMinutes, FILTER_VALIDATE_INT);
+    if ($sessionMinutes === false) {
+        $sessionMinutes = $defaultSessionMinutes;
+    }
+    $sessionMinutes = max(0, min(10080, (int) $sessionMinutes));
+    Config::set('session_idle_timeout', $sessionMinutes * 60);
+
     if ($settings->template()['subject_template'] === '') {
         $settings->saveTemplate(
             'Reporte de asistencia | {{departamento}} | Semana {{semana}}',

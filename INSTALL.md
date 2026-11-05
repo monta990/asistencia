@@ -1,8 +1,63 @@
-# Instalación y actualización — ZKTimeNet Personal Framework 1.2.19
+# Instalación y actualización — ZKTimeNet Personal Framework 1.2.31
+
+La versión 1.2.31 compacta el dashboard, unifica la altura visual de paneles dentro de cuadrículas y cambia el orden del menú lateral a **Cargar reporte → Historial → Resumen**. No cambia funcionalidades ni el esquema SQLite 6; no requiere migraciones.
+
+## Actualización a 1.2.31
+
+Antes de reemplazar archivos, descarga un respaldo completo desde **Sistema → Actualizaciones**. Sustituye los archivos de la aplicación y conserva intacto el almacenamiento externo (`private/`, `uploads/`, `exports/`, `backups/`, `sessions/`, `app.key` y SQLite). No ejecutes migraciones por esta versión. Después verifica el dashboard en escritorio y móvil, confirma que las cuatro métricas se vean compactas, que los dos paneles centrales queden a la misma altura y que el menú muestre **Historial** encima de **Resumen**. Recorre también Cargar reporte, Correo, Identidad visual, Mi cuenta y Actualizaciones para comprobar que los paneles de cada cuadrícula terminen alineados.
+
+La versión 1.2.30 reorganiza **Configuración → Departamentos**: el catálogo ocupa todo el ancho y **Agregar departamento** / **Editar** abren un modal compartido. Se conservan campos, destinatarios (incluidos los almacenados previamente), responsables, habilitación, orden, validaciones, confirmación de eliminación y envío. No cambia el esquema SQLite 6 ni requiere migraciones.
+
+## Actualización a 1.2.30
+
+Antes de reemplazar archivos, descarga un respaldo completo desde **Sistema → Actualizaciones**. Sustituye los archivos de la aplicación y conserva intacto el almacenamiento externo (`private/`, `uploads/`, `exports/`, `backups/`, `sessions/`, `app.key` y la base SQLite). No ejecutes migraciones por esta versión. Después abre **Configuración → Departamentos**: comprueba que el catálogo use todo el ancho, prueba **Agregar departamento**, edita un departamento de prueba, confirma que responsable y destinatarios se precarguen y que la casilla de envío conserve su estado. Comprueba que Escape, clic fuera y Cancelar cierren el modal sin guardar. Verifica también que **Eliminar** siga solicitando confirmación.
+
+
+La versión 1.2.29 reorganiza **Administración → Usuarios**: la lista ocupa todo el ancho y las operaciones **Agregar usuario** y **Editar** se realizan en un modal compartido. También equilibra la distribución visual de la política de acceso y duración de sesión. No cambia datos, configuración, autenticación ni el esquema SQLite 6; no requiere migraciones.
+
+## Actualización a 1.2.29
+
+Antes de reemplazar los archivos, realiza un respaldo completo desde **Sistema → Actualizaciones**. Sustituye los archivos de la aplicación y conserva intacto el almacenamiento externo (`private/`, `uploads/`, `exports/`, `backups/`, `sessions/`, `app.key` y la base SQLite). No ejecutes migraciones por esta versión: el esquema permanece en 6. Después ingresa como administrador, abre **Administración → Usuarios**, comprueba que la lista ocupe el ancho disponible y prueba **Agregar usuario** y **Editar** con una cuenta de prueba. Verifica que al editar una cuenta la contraseña vacía mantenga la existente. Comprueba también la política de acceso en escritorio, tableta y móvil.
+
+La versión 1.2.28 agrega un ajuste global de duración de sesión por inactividad en **Administración → Usuarios**. El valor inicial sigue siendo 30 minutos; se puede configurar de 0 a 10,080 minutos. El valor 0 desactiva el vencimiento por inactividad mientras el navegador permanezca abierto. La cookie sigue terminando al cerrar el navegador. No agrega migraciones nuevas y conserva el esquema SQLite 6. Las instalaciones que todavía tengan migraciones pendientes deben aplicarlas desde **Sistema → Actualizaciones**.
+
+## Actualización a 1.2.28
+
+Esta versión incorpora la duración global de sesión por inactividad. No cambia la base de datos, por lo que el esquema SQLite objetivo permanece en 6 y no requiere ejecutar una migración nueva. Antes de reemplazar archivos, descarga un respaldo completo desde **Sistema → Actualizaciones**. Sustituye los archivos de la aplicación y conserva intacto el almacenamiento externo (`private/`, `uploads/`, `exports/`, `backups/`, `sessions/` y `app.key`). La configuración de sesión se guarda en el ajuste `security` ya existente y se aplica automáticamente; no necesitas volver a configurar usuarios ni destinatarios.
+
+## Actualización a 1.2.27
+
+Esta versión amplía el contraste de botones y controles del tema claro en todas las pantallas. No modifica el esquema SQLite ni agrega migraciones. Conserva el almacenamiento externo y las configuraciones de 1.2.26.
+
+## Actualización a 1.2.26
+
+Antes de sustituir archivos, crea un respaldo completo desde **Sistema → Actualizaciones**. Reemplaza los archivos de la aplicación sin sobrescribir la carpeta externa de datos (`private/`, `uploads/`, `exports/`, `backups/`, `sessions/`, `app.key`, los XLSX originales ni los reportes). El esquema objetivo sigue siendo 6 y esta versión no incorpora cambios de base de datos. Si la instalación muestra migraciones pendientes, aplica las que indique el sistema; se creará un respaldo SQLite antes de ejecutarlas. El aviso de actualización no enumera cambios concretos: muestra siempre el mismo texto y la obligatoriedad de completar las actualizaciones antes de continuar usando la plataforma.
 
 ## Requisitos mínimos
 
-La versión 1.2.19 utiliza el ancho completo del área principal en todas las pantallas autenticadas. Es un cambio de presentación; no requiere migración ni modifica los datos existentes.
+La aplicación requiere PHP 8.5 o superior en IIS/FastCGI y las extensiones `pdo_sqlite`, `zip`, `dom` y `openssl`. No requiere Composer ni dependencias externas. Conserva los originales XLSX, las salidas y la base SQLite bajo la ruta de datos externa.
+
+## Actualización a 1.2.25
+
+Esta versión agrega la migración `006_bulk_mail_batches.php`, que crea el registro de lotes de envío masivo y agrega la referencia `batch_id` a `mail_events`. La columna `users.email` ya existe desde el esquema inicial, por lo que no se requiere recrear usuarios ni copiar datos. En **Administración → Usuarios** puedes administrar el correo de cada persona; cada usuario también puede modificarlo desde **Mi cuenta**. Al terminar el envío masivo, el sistema intenta mandar el comprobante al correo de la cuenta que inició la operación.
+
+Antes de reemplazar archivos, crea un respaldo completo desde **Sistema → Actualizaciones** o una copia consistente de SQLite junto con `private/app.key`. Sustituye los archivos de aplicación y conserva intacto el directorio externo de datos (`private/`, `uploads/`, `exports/`, `backups/`, `sessions/`, `app.key`, XLSX originales y reportes). Después ingresa como administrador, abre **Sistema → Actualizaciones** y aplica la migración 006. No edites ni elimines las migraciones anteriores. No se requieren extensiones nuevas ni cambios de permisos IIS.
+
+El comprobante distingue los destinatarios aceptados por SMTP, los fallidos y el motivo disponible, además de departamentos omitidos. La aceptación SMTP no confirma llegada a bandeja ni lectura. Si la cuenta no tiene correo, el modal lo indica y los resultados del lote permanecen auditados; configura el correo en **Mi cuenta** para futuras operaciones.
+
+## Actualización a 1.2.22
+
+1. Haz un respaldo completo desde **Sistema → Actualizaciones** antes de sustituir archivos.
+2. Reemplaza los archivos del sitio con este paquete. No sobrescribas ni elimines el directorio externo de datos, `private/zktime.sqlite`, `private/app.key`, `exports/` ni los reportes existentes.
+3. No ejecutes migraciones: el esquema continúa en 5.
+4. Procesa un XLSX de prueba. Comprueba el título, semana/periodo, pie de usuario/fecha y, si hay logo configurado, su imagen en la esquina superior izquierda de cada Excel departamental.
+5. Abre el detalle de una ejecución y prueba **Regenerar reporte**. La acción es exclusiva de Administradores y busca primero `exports/{runId}/source.xlsx`; como compatibilidad, también reconoce `uploads/{runId}.xlsx`. Si recupera un XLSX histórico desde `uploads`, crea y verifica una copia privada `source.xlsx` para las siguientes regeneraciones. Verifica que el ZIP y los Excel apunten a los archivos nuevos y que el historial de correos previos siga visible.
+
+El logotipo se limita al espacio superior izquierdo, con límite de 160 × 44 px; el título ocupa el encabezado y el subtítulo calculado se coloca inmediatamente debajo, en la fila 3. Así la imagen no tapa el título ni la semana.
+
+La regeneración prepara primero los archivos en una carpeta temporal. Solo después de guardar las nuevas rutas en SQLite elimina las salidas antiguas. No envía correos automáticamente; los archivos regenerados quedan listos para descargar y reenviar desde el historial. El comando `php bin/zknet cleanup` conserva los XLSX de `uploads` cuyo nombre corresponda al ID de una ejecución registrada, aunque tengan más de un día; solo elimina cargas huérfanas. Los respaldos completos recuperan automáticamente esas fuentes históricas y las incluyen dentro de `data/exports/{runId}/source.xlsx`, sin incluir el directorio `uploads` completo.
+
+El logotipo debe ser PNG, JPG/JPEG o GIF para incrustación directa en Excel. Un logo WebP se convierte con GD cuando está disponible; sin GD, el procesamiento continúa, pero los Excel se generan sin imagen y muestran un aviso. Para incrustación garantizada, usa PNG/JPG/GIF.
 
 - Windows Server + IIS + PHP **8.5 NTS** mediante FastCGI (también se detectan Apache, Nginx y entornos Linux/macOS).
 - Extensiones PHP: **`pdo_sqlite`, `zip`, `dom`, `openssl`**.
@@ -106,11 +161,11 @@ También puedes abrir la dirección raíz: una instalación nueva se redirige au
 6. Ejecuta las migraciones numeradas y crea la cuenta `administrador`. La contraseña se guarda en SQLite mediante `password_hash()`.
 7. Registra el cierre de instalación fuera del sitio web y envía al login.
 
-El asistente no tiene una contraseña predeterminada. El hash de la contraseña capturada se mantiene únicamente en memoria durante la migración histórica 003; no se escribe en `config/app.php` ni en `config/local.php`. La base SQLite de una instalación nueva se crea en esquema 5 e incluye la política de bloqueo persistente y la versión de sesión por usuario.
+El asistente no tiene una contraseña predeterminada. El hash de la contraseña capturada se mantiene únicamente en memoria durante la migración histórica 003; no se escribe en `config/app.php` ni en `config/local.php`. La base SQLite de una instalación nueva se crea en esquema 6 e incluye la política de bloqueo persistente, la versión de sesión por usuario y el seguimiento de lotes de correo masivo.
 
 ### Actualizaciones existentes
 
-- **Instalaciones en esquema 3, 4 o 5:** no se abre el asistente. Se conservan las cuentas, contraseñas, datos, reportes y llaves. Las migraciones pendientes se aplican desde **Sistema → Actualizaciones**.
+- **Instalaciones en esquema 3, 4 o 5:** no se abre el asistente. Se conservan las cuentas, contraseñas, datos, reportes y llaves. Las migraciones pendientes, incluida la 006 para bases en esquema 5, se aplican desde **Sistema → Actualizaciones**.
 - **Instalaciones en esquema 1 o 2:** el asistente de transición solicita establecer una nueva contraseña para `administrador`, porque el hash predefinido de versiones antiguas se elimina del código. Antes de migrar crea un respaldo SQLite; mantiene los usuarios existentes, departamentos, ajustes, historial y archivos. Después entra con `administrador` y la nueva contraseña.
 - **Instalaciones nuevas:** se crea la cuenta desde cero. El nombre de usuario inicial es `administrador`; se puede cambiar después desde **Administración → Usuarios**.
 
@@ -122,7 +177,7 @@ En **Administración → Usuarios** configura la política global de inicio de s
 
 En **Sistema → Actualizaciones** se muestran las rutas físicas de `data_root`, SQLite, `private`, `exports`, `backups`, `config/app.php` y `config/local.php`. Para un respaldo manual conserva junta la carpeta raíz de datos y el directorio de aplicación; nunca separes `private/zktime.sqlite` de `private/app.key`.
 
-El botón **Descargar respaldo completo ZIP** genera un nombre con fecha y hora e incluye SQLite, `app.key`, los archivos privados (incluida la firma de correo), exportaciones permanentes, y `config/app.php`/`config/local.php` como referencias. No incluye sesiones, temporales, logs ni respaldos anteriores. El ZIP temporal se elimina del servidor al completar la descarga; los respaldos automáticos previos a una migración o restauración permanecen en la carpeta `backups` indicada en pantalla. Los dos archivos PHP de configuración se incluyen solo como referencia: no se ejecutan ni se sobrescriben en una restauración.
+El botón **Descargar respaldo completo ZIP** genera un nombre con fecha y hora e incluye SQLite, `app.key`, los archivos privados (incluida la firma de correo), exportaciones permanentes, y `config/app.php`/`config/local.php` como referencias. No incluye sesiones, temporales, logs ni respaldos anteriores. El ZIP temporal se elimina del servidor al completar la descarga; los respaldos automáticos previos a una migración o restauración permanecen en la carpeta `backups` indicada en pantalla. Los dos archivos PHP de configuración se incluyen solo como referencia: no se ejecutan ni se sobrescriben en una restauración. Cuando un XLSX histórico solo existe en `uploads`, el respaldo lo copia en la carpeta permanente de su ejecución, junto a los reportes generados.
 
 Para restaurar, selecciona un ZIP de esta versión y confirma la contraseña del administrador actual. El sistema valida manifiesto, checksums SHA-256, límites de tamaño, rutas ZIP, llave de cifrado e integridad de SQLite antes de cambiar datos. Antes de sustituir la información crea un respaldo automático del estado actual; si falla la aplicación, intenta recuperar ese estado automáticamente. Al completar la restauración se cierra la sesión y debes ingresar con las credenciales contenidas en el respaldo. La restauración requiere la misma versión de aplicación y la misma ruta raíz de datos que generó el ZIP. Mantén una copia independiente del ZIP fuera del servidor.
 
@@ -428,3 +483,10 @@ Esta versión corrige únicamente la presentación del envío masivo: **Enviar c
 - No requiere migración SQLite ni cambios en permisos de IIS.
 - Conserva el directorio de datos privado, SQLite, `app.key` y los reportes permanentes.
 - El panel explica el formato `.xlsx` y el calendario ISO con un ejemplo; la acción **Procesar reporte** se mantiene en el encabezado.
+
+
+## Logotipo de la empresa (1.2.20)
+
+En **Sistema → Identidad visual**, selecciona una imagen PNG, JPG/JPEG, GIF o WebP (máximo 2 MB, 2400 × 1200 píxeles y 2.5 megapíxeles). La vista previa se actualiza antes de guardar. Puedes reemplazar el archivo o marcar **Quitar logotipo y usar las siglas**. Cuando no hay una imagen válida configurada, el sistema conserva las siglas como alternativa.
+
+El archivo se almacena fuera del DocumentRoot, en el directorio privado que ya utiliza la aplicación. No se requieren permisos IIS adicionales, extensiones PHP nuevas ni migraciones. El logotipo se incluye en los respaldos completos junto con SQLite, `app.key` y los demás recursos privados.
