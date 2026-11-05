@@ -1,0 +1,36 @@
+'use strict';
+const fs = require('node:fs');
+const path = require('node:path');
+const root = path.resolve(__dirname, '..');
+const read = (name) => fs.readFileSync(path.join(root, name), 'utf8');
+const assert = (condition, message) => { if (!condition) throw new Error(message); };
+
+const config = read('src/Core/Config.php');
+const session = read('src/Core/Session.php');
+const bootstrap = read('bootstrap.php');
+const index = read('index.php');
+const view = read('views/pages/users.php');
+const css = read('assets/app.css');
+const version = read('src/Core/Version.php');
+
+assert(config.includes('public static function set(string $key, mixed $value)'), 'runtime config setter is missing');
+assert(session.includes("Config::get('session_idle_timeout', 1800)"), '30-minute fallback is missing');
+assert(session.includes('$idleTimeout > 0 && ($now - $last) > $idleTimeout'), 'idle expiry must run only for positive timeouts');
+assert(session.includes('$idleTimeout === 0 ? 2147483647 : max(300, $idleTimeout)'), 'PHP garbage collection must not expire no-timeout sessions');
+assert(bootstrap.indexOf("$settings->get('security', [])") < bootstrap.indexOf('Session::start()'), 'persisted policy must load before PHP session starts');
+assert(bootstrap.includes("Config::set('session_idle_timeout', $sessionMinutes * 60)"), 'persisted session policy must be applied globally');
+assert(bootstrap.includes('min(10080'), 'bootstrap must cap stored timeout at seven days');
+assert(index.includes("'session_idle_timeout_minutes' => $sessionTimeoutMinutes"), 'save handler must persist timeout');
+assert(index.includes("$_POST['session_idle_timeout_minutes']") && index.includes('$sessionTimeoutMinutes < 0') && index.includes('$sessionTimeoutMinutes > 10080'), 'save handler must validate timeout range');
+assert(index.includes('$fallbackSessionMinutes'), 'older open forms must preserve the current/default timeout when field is absent');
+assert(index.includes("'save_login_policy', 'unlock_user'"), 'session policy action must remain admin-only');
+assert(view.includes('name="session_idle_timeout_minutes"') && view.includes('min="0" max="10080"'), 'user panel must expose bounded timeout');
+assert(view.includes('Usa 0 para no vencer por inactividad'), 'zero-timeout behavior must be explained');
+assert(view.includes('Aplica a todos los usuarios'), 'policy must be clearly global');
+assert(css.includes('repeat(3,minmax(0,1fr))') && css.includes('align-items:start'), 'policy fields must use three balanced columns on wide screens');
+assert(css.includes('login-policy-form .btn{grid-column:1/-1;justify-self:end'), 'save action must occupy its own right-aligned row');
+assert(css.includes('max-width:360px') && css.includes('max-width:440px'), 'policy controls and helper text must have readable widths');
+assert(css.includes('login-policy-form{grid-template-columns:repeat(2,minmax(0,1fr))}'), 'policy form must collapse to two columns at tablet widths');
+assert(css.includes('login-policy-form{grid-template-columns:minmax(0,1fr)}'), 'policy form must collapse to one column on narrow screens');
+assert(version.includes("VERSION = '1.2.31'") && version.includes('SCHEMA_TARGET = 6'), 'release must be 1.2.31 without a schema bump');
+console.log('OK: configurable global idle timeout, zero/no-expiry semantics, admin-only persistence and backward-compatible schema.');
