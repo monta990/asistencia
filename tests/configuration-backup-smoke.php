@@ -55,7 +55,7 @@ try {
     $legacySource = $temporary . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . $runId . '.xlsx';
     file_put_contents($legacySource, 'XLSX histórico de prueba');
     mkdir($temporary . DIRECTORY_SEPARATOR . 'exports' . DIRECTORY_SEPARATOR . $runId, 0700, true);
-    $runInsert = $pdo->prepare('INSERT INTO report_runs (id, original_filename, archive_name, archive_path, week, iso_year, start_date, end_date, status, created_by, created_at) VALUES (:id, :original, :archive_name, :archive_path, :week, :year, :start, :end, :status, NULL, :created)');
+    $runInsert = $pdo->prepare('INSERT INTO report_runs (id, original_filename, archive_name, archive_path, week, iso_year, start_date, end_date, departments_count, email_sent_count, email_failed_count, status, created_by, created_at) VALUES (:id, :original, :archive_name, :archive_path, :week, :year, :start, :end, 0, 0, 0, :status, NULL, :created)');
     $runInsert->execute([
         ':id' => $runId,
         ':original' => 'historical.xlsx',
