@@ -12,13 +12,12 @@ const users = read('src/Repositories/UserRepository.php');
 const index = read('index.php');
 const view = read('views/pages/users.php');
 
-assert(version.includes("VERSION = '1.2.31'") && version.includes('SCHEMA_TARGET = 6') && version.includes('LOCKOUT_SCHEMA = 5'), 'release must target lockout schema 5');
+assert(version.includes("VERSION = '1.2.31'") && version.includes('SCHEMA_TARGET = 6') && version.includes('LOCKOUT_SCHEMA = 5'), 'release must target schema 6 and lockout schema 5');
 for (const column of ['failed_login_attempts', 'locked_until', 'session_version']) assert(migration.includes(`ADD COLUMN ${column}`), `${column} migration missing`);
 assert(migration.includes('CREATE INDEX idx_users_locked_until'), 'locked account lookup index missing');
 assert(auth.includes('DEFAULT_MAX_ATTEMPTS = 5') && auth.includes('DEFAULT_LOCKOUT_MINUTES = 10'), 'defaults must be five attempts and ten minutes');
-assert(auth.includes("$pdo->exec('BEGIN IMMEDIATE')") && auth.includes('$pdo->commit()'), 'failed login updates must serialize through an immediate SQLite transaction');
-assert(auth.includes('if ($nextCount >= $maxAttempts)') && auth.includes('locked_until = :locked_until'), 'the threshold must set a finite account lock expiration');
-assert(auth.includes('session_version = session_version + 1 WHERE id = :id AND is_active = 1'), 'locking an account must revoke its active sessions');
+assert(auth.includes('locked_until = CASE WHEN failed_login_attempts + 1 >= :max_attempts'), 'failed attempts must be counted atomically in SQLite');
+assert(auth.includes('session_version = CASE WHEN failed_login_attempts + 1 >= :max_attempts THEN session_version + 1'), 'locking an account must revoke its active sessions');
 assert(auth.includes("SELECT setting_value FROM settings WHERE setting_key = 'security'"), 'lockout policy must be read from persisted settings');
 assert(auth.includes('knownSessionVersion !== $sessionVersion') && auth.includes('locked_until'), 'each authenticated request must verify lock state and session version');
 assert(auth.includes('AND session_version = :session_version') && auth.includes('AND (locked_until IS NULL OR locked_until <= :now)'), 'successful login must not race past a concurrent account lock or account change');
@@ -30,8 +29,8 @@ assert(index.includes("'save_login_policy', 'unlock_user'"), 'user security acti
 assert(index.includes("case 'save_login_policy':") && index.includes("case 'unlock_user':"), 'user security handlers missing');
 assert(view.includes('name="max_login_attempts"') && view.includes('value="<?= $maxAttempts ?>"'), 'attempt policy field missing');
 assert(view.includes('name="lockout_minutes"') && view.includes('value="<?= $lockoutMinutes ?>"'), 'duration policy field missing');
+assert(view.includes('name="session_idle_timeout_minutes"'), 'session inactivity timeout policy field missing');
 assert(view.includes('Desbloquear') && view.includes("$row['role'] === 'admin'"), 'user list must expose locked administrators to unlock');
 console.log('OK: persistent account lockout, configurable policy, admin unlock and session revocation coverage.');
 
-assert(auth.includes('$nextCount = (int) $currentCount + 1') && auth.includes('failed_login_attempts = :attempts'), 'locked users must retain the computed threshold count for the admin UI');
-assert(auth.includes("$pdo->exec('BEGIN IMMEDIATE')") && auth.includes('if ($nextCount >= $maxAttempts)'), 'lockout must serialize attempts and enforce the configured threshold');
+assert(auth.includes('failed_login_attempts = failed_login_attempts + 1'), 'locked users must retain the threshold count for the admin UI');
